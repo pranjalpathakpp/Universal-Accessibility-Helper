@@ -171,28 +171,6 @@ npm run dev
 
 Note: Content scripts require a full rebuild and extension reload.
 
-## 📦 Building for Distribution
-
-1. **Build the extension:**
-
-```bash
-npm run build:all
-```
-
-2. **Create a ZIP file:**
-
-```bash
-cd dist
-zip -r ../accessibility-helper.zip .
-```
-
-3. **Publish to Chrome Web Store:**
-
-- Go to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-- Upload the ZIP file
-- Complete store listing (screenshots, description, etc.)
-- Submit for review
-
 ## 🎨 Accessible by Design
 
 The extension UI itself:
