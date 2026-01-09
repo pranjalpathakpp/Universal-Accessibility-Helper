@@ -1,18 +1,6 @@
-/**
- * Generate extension icons from SVG
- * 
- * This script helps generate the required PNG icons for Chrome extension
- * You can use any SVG icon and convert it to PNG at different sizes
- * 
- * Requirements:
- * - Install sharp: npm install --save-dev sharp
- * - Or use an online tool: https://realfavicongenerator.net/
- */
-
 const fs = require('fs');
 const path = require('path');
 
-// Simple SVG icon for accessibility (you can replace this with any SVG)
 const iconSVG = `
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -27,7 +15,6 @@ const iconSVG = `
 </svg>
 `;
 
-// Save SVG
 const iconsDir = path.join(__dirname, '../icons');
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });

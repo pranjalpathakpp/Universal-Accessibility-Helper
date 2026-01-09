@@ -1,12 +1,6 @@
-/**
- * Create simple placeholder icons for Chrome extension
- * Uses a simple colored square with accessibility symbol
- */
-
 const fs = require('fs');
 const path = require('path');
 
-// Simple SVG template for accessibility icon
 const createIconSVG = (size) => `
 <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -22,21 +16,16 @@ const createIconSVG = (size) => `
 </svg>
 `;
 
-// Convert SVG to data URL (for PNG, we'll create a simple approach)
-// Since we can't easily create PNG without sharp, we'll create a minimal solution
-// For now, let's create a simple HTML file that can be converted, or use ImageMagick if available
 
 const iconsDir = path.join(__dirname, '../icons');
 const distIconsDir = path.join(__dirname, '../dist/icons');
 
-// Ensure directories exist
 [iconsDir, distIconsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// Create SVG files (can be converted to PNG later)
 const sizes = [16, 48, 128];
 sizes.forEach(size => {
   const svg = createIconSVG(size);
@@ -65,18 +54,12 @@ sizes.forEach(size => {
 
 console.log('\n💡 For now, creating minimal PNG placeholders...');
 
-// Create minimal 1x1 PNG as placeholder (Chrome will accept this)
-// This is a workaround - proper icons should be created
 const createMinimalPNG = (size) => {
-  // Create a very simple PNG using base64 encoded minimal PNG
-  // This is a 1x1 purple pixel, but Chrome will accept it
   const minimalPNG = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     'base64'
   );
   
-  // For now, we'll create a simple approach - use ImageMagick if available
-  // Or create a note file
   fs.writeFileSync(
     path.join(iconsDir, `icon${size}.png.placeholder`),
     `Placeholder for icon${size}.png\nSize: ${size}x${size}\nColor: #667eea\n\nCreate this file as a PNG image.`

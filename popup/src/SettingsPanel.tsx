@@ -14,7 +14,6 @@ export default function SettingsPanel({ isOpen, onClose, onSave, currentSettings
   const [settings, setSettings] = useState<Partial<AccessibilityProfile>>(currentSettings);
 
   useEffect(() => {
-    // Load saved custom settings
     chrome.storage.sync.get(['customSettings'], (result) => {
       if (result.customSettings) {
         setSettings({ ...currentSettings, ...result.customSettings });
@@ -29,7 +28,6 @@ export default function SettingsPanel({ isOpen, onClose, onSave, currentSettings
   };
 
   const handleSave = () => {
-    // Save to storage
     chrome.storage.sync.set({ customSettings: settings }, () => {
       onSave(settings);
       onClose();

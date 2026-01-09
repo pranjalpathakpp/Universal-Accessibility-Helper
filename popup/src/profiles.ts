@@ -1,8 +1,3 @@
-/**
- * Accessibility Profiles (Popup version)
- * Shared profile definitions for the popup UI
- */
-
 export type ProfileId = 'lowVision' | 'dyslexia' | 'cognitive' | 'custom';
 
 export interface AccessibilityProfile {

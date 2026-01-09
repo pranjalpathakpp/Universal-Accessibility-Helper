@@ -4,7 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: './', // Use relative paths for Chrome extension
+  base: './',
   build: {
     outDir: '../dist/popup',
     emptyOutDir: true,

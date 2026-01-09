@@ -1,6 +1,5 @@
 const esbuild = require('esbuild');
 
-// Build content script
 async function buildContent() {
   await esbuild.build({
     entryPoints: ['content/injector.ts'],
@@ -16,7 +15,6 @@ async function buildContent() {
   console.log('✅ Content script built');
 }
 
-// Build background service worker
 async function buildBackground() {
   await esbuild.build({
     entryPoints: ['background/serviceWorker.ts'],
@@ -32,7 +30,6 @@ async function buildBackground() {
   console.log('✅ Background worker built');
 }
 
-// Build all
 async function buildAll() {
   try {
     await Promise.all([buildContent(), buildBackground()]);

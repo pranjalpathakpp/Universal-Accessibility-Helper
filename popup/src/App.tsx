@@ -26,7 +26,6 @@ function App() {
   const [customSettings, setCustomSettings] = useState<Partial<AccessibilityProfile>>(PROFILES.custom);
 
   useEffect(() => {
-    // Get current state from background
     chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
       if (response) {
         setState({
@@ -56,7 +55,6 @@ function App() {
 
   const handleProfileChange = (profileId: ProfileId) => {
     if (profileId === 'custom' && !showSettings) {
-      // Open settings panel for custom profile
       setShowSettings(true);
       return;
     }
@@ -80,7 +78,6 @@ function App() {
     setCustomSettings(settings);
     setLoading(true);
     
-    // Save custom settings and apply
     chrome.storage.sync.set({ customSettings: settings }, () => {
       chrome.runtime.sendMessage({
         action: 'setProfile',
@@ -99,7 +96,7 @@ function App() {
   };
 
   useEffect(() => {
-    // Load custom settings on mount
+    
     chrome.storage.sync.get(['customSettings'], (result) => {
       if (result.customSettings) {
         setCustomSettings(result.customSettings);
@@ -161,8 +158,7 @@ function App() {
                     default: return <FiZap size={20} />;
                   }
                 };
-                
-                // Use custom settings if available for custom profile
+
                 const displayProfile = profile.id === 'custom' && customSettings 
                   ? { ...profile, ...customSettings }
                   : profile;

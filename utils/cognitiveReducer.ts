@@ -1,11 +1,3 @@
-/**
- * Cognitive Load Reduction
- * Removes distractions and simplifies page structure
- */
-
-/**
- * Disable auto-playing media
- */
 export function disableAutoPlay(): void {
   const videos = document.querySelectorAll<HTMLVideoElement>('video[autoplay]');
   videos.forEach(video => {
@@ -19,7 +11,7 @@ export function disableAutoPlay(): void {
     audio.pause();
   });
   
-  // Disable iframes with autoplay
+  
   const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe');
   iframes.forEach(iframe => {
     const src = iframe.src;
@@ -29,24 +21,20 @@ export function disableAutoPlay(): void {
   });
 }
 
-/**
- * Collapse large sections (optional - can be toggled)
- */
+
 export function collapseLargeSections(): void {
   const sections = document.querySelectorAll('section, div.section, div.content-block');
   
   sections.forEach(section => {
     const element = section as HTMLElement;
     const height = element.offsetHeight;
-    
-    // If section is very tall (> 2000px), make it collapsible
+ 
     if (height > 2000 && !element.hasAttribute('data-a11y-collapsed')) {
       element.setAttribute('data-a11y-collapsed', 'false');
       element.style.maxHeight = '1000px';
       element.style.overflow = 'hidden';
       element.style.position = 'relative';
-      
-      // Add expand button
+  
       const expandBtn = document.createElement('button');
       expandBtn.textContent = 'Show more';
       expandBtn.className = 'a11y-expand-section';
@@ -79,9 +67,6 @@ export function collapseLargeSections(): void {
   });
 }
 
-/**
- * Highlight key sentences (first sentence of paragraphs)
- */
 export function highlightKeySentences(): void {
   const paragraphs = document.querySelectorAll('p');
   
@@ -101,8 +86,7 @@ export function highlightKeySentences(): void {
         padding: 2px 4px;
         border-radius: 2px;
       `;
-      
-      // Replace first sentence in paragraph
+  
       const rest = text.substring(firstSentence.length);
       p.innerHTML = span.outerHTML + rest;
       p.setAttribute('data-a11y-highlighted', 'true');
@@ -110,15 +94,12 @@ export function highlightKeySentences(): void {
   });
 }
 
-/**
- * Reduce visual clutter (more conservative approach)
- */
 export function reduceClutter(): void {
-  // Only hide clearly decorative elements, be more conservative
+  
   const decorativeSelectors = [
-    '[role="presentation"][aria-hidden="true"]', // Only if both attributes
-    '.advertisement:not([role="main"]):not([role="article"])', // Ads but not main content
-    '[class*="ad-"]:not([class*="admin"]):not([class*="add"])', // Ad classes but not admin/add
+    '[role="presentation"][aria-hidden="true"]', 
+    '.advertisement:not([role="main"]):not([role="article"])', 
+    '[class*="ad-"]:not([class*="admin"]):not([class*="add"])', 
   ];
   
   decorativeSelectors.forEach(selector => {
@@ -126,7 +107,7 @@ export function reduceClutter(): void {
       const elements = document.querySelectorAll(selector);
       elements.forEach(el => {
         const htmlEl = el as HTMLElement;
-        // Only hide if it's clearly not important content
+        
         const isInMainContent = htmlEl.closest('main, article, [role="main"], [role="article"]');
         if (!isInMainContent && !htmlEl.hasAttribute('data-a11y-hidden')) {
           htmlEl.setAttribute('data-a11y-hidden', 'true');
@@ -134,26 +115,19 @@ export function reduceClutter(): void {
         }
       });
     } catch (e) {
-      // Ignore
+     
     }
   });
 }
 
-/**
- * Apply all cognitive load reduction features
- */
 export function applyCognitiveReduction(): void {
   disableAutoPlay();
   reduceClutter();
-  // Note: collapseLargeSections and highlightKeySentences are optional
-  // and can be enabled per profile
+  
 }
 
-/**
- * Remove cognitive load reductions
- */
 export function removeCognitiveReduction(): void {
-  // Restore hidden elements
+  
   const hidden = document.querySelectorAll('[data-a11y-hidden="true"]');
   hidden.forEach(el => {
     const htmlEl = el as HTMLElement;
@@ -161,8 +135,7 @@ export function removeCognitiveReduction(): void {
     htmlEl.style.removeProperty('display');
     htmlEl.removeAttribute('data-a11y-hidden');
   });
-  
-  // Remove collapsed sections
+ 
   const collapsed = document.querySelectorAll('[data-a11y-collapsed]');
   collapsed.forEach(el => {
     const htmlEl = el as HTMLElement;
@@ -180,7 +153,6 @@ export function removeCognitiveReduction(): void {
     }
   });
   
-  // Remove highlights and restore original text
   const highlighted = document.querySelectorAll('[data-a11y-highlighted]');
   highlighted.forEach(el => {
     const originalText = el.getAttribute('data-a11y-original-text');
@@ -190,16 +162,14 @@ export function removeCognitiveReduction(): void {
     }
     el.removeAttribute('data-a11y-highlighted');
     
-    // Remove highlight spans
+    
     const highlightSpans = el.querySelectorAll('.a11y-key-sentence');
     highlightSpans.forEach(span => span.remove());
   });
   
-  // Restore auto-play videos/audio
   const videos = document.querySelectorAll<HTMLVideoElement>('video');
   videos.forEach(video => {
-    // Don't restore autoplay if it wasn't there originally
-    // Just ensure it's not paused if it should play
+   
   });
 }
 

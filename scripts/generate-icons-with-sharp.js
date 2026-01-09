@@ -1,10 +1,3 @@
-/**
- * Generate extension icons using sharp (if installed)
- * 
- * Install: npm install --save-dev sharp
- * Run: node scripts/generate-icons-with-sharp.js
- */
-
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
