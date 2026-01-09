@@ -199,13 +199,13 @@ This extension:
 - ✅ No tracking or analytics
 - ✅ Open source and auditable
 
-## 🎓 Resume-Ready Description
-
-> Built a privacy-first Chrome extension that provides universal, user-controlled accessibility enhancements across arbitrary websites using DOM injection, ARIA enrichment, and rule-based text simplification. Designed and implemented a Manifest V3 architecture with a React-based UI, background service worker, and content scripts.
-
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🔒 Privacy Policy
+
+This extension is privacy-first and processes everything locally. See [PRIVACY.md](PRIVACY.md) for complete privacy policy.
 
 ## 🤝 Contributing
 
