@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "outDir": "./dist"
+  },
+  "include": [
+    "content/**/*",
+    "background/**/*",
+    "utils/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "popup",
+    "dist"
+  ]
+}
+

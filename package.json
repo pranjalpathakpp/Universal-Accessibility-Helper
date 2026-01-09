@@ -1,0 +1,25 @@
+{
+  "name": "universal-accessibility-helper",
+  "version": "0.1.0",
+  "description": "One-click accessibility improvements for any website",
+  "author": "Pranjal Pathak",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:popup && npm run build:scripts && npm run copy-assets",
+    "build:popup": "cd popup && npm install && npm run build",
+    "build:scripts": "node esbuild.config.js",
+    "build:all": "npm run build",
+    "copy-assets": "cp manifest.json dist/ && (test -d icons && cp -r icons dist/ || true)",
+    "create-icons": "node scripts/create-icons.js && cp -r icons dist/",
+    "dev": "cd popup && npm run dev",
+    "clean": "rm -rf dist popup/node_modules popup/dist",
+    "generate-icons": "node scripts/generate-icons.js",
+    "generate-icons:sharp": "node scripts/generate-icons-with-sharp.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.11",
+    "sharp": "^0.34.5",
+    "typescript": "^5.2.2"
+  }
+}
