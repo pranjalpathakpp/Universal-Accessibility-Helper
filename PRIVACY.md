@@ -34,9 +34,8 @@ This data is stored locally in your browser and is never transmitted outside you
 The Extension requires the following permissions:
 
 - **`storage`**: To save your accessibility preferences locally
-- **`activeTab`**: To apply accessibility enhancements to the current webpage
-- **`scripting`**: To inject accessibility styles and modifications
-- **`<all_urls>`**: To work on any website you visit
+- **`activeTab`**: To access the current webpage
+- **`<all_urls>`**: To allow content scripts to run on any website you visit
 
 These permissions are used solely for the Extension's functionality and are not used to collect or transmit data.
 
