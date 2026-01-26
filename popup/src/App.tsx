@@ -15,6 +15,7 @@ import {
   FiHelpCircle
 } from 'react-icons/fi';
 import SettingsPanel from './SettingsPanel';
+import ViralityPrompt from './ViralityPrompt';
 import './App.css';
 
 interface ExtensionState {
@@ -27,6 +28,8 @@ interface QuickSettings {
   colorBlindMode: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
   readingRuler: boolean;
   darkMode: boolean;
+  translateEnabled: boolean;
+  targetLanguage: string;
 }
 
 function App() {
@@ -41,10 +44,13 @@ function App() {
     readingMode: false,
     colorBlindMode: 'none',
     readingRuler: false,
-    darkMode: false
+    darkMode: false,
+    translateEnabled: false,
+    targetLanguage: 'en'
   });
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1.0);
+  const [usageCount, setUsageCount] = useState(0);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
@@ -58,17 +64,28 @@ function App() {
     });
 
     // Load quick settings
-    chrome.storage.sync.get(['quickSettings'], (result) => {
+    chrome.storage.sync.get(['quickSettings'], (result: { [key: string]: any }) => {
       if (result.quickSettings) {
-        setQuickSettings(prev => ({ ...prev, ...result.quickSettings }));
+        setQuickSettings(prev => ({ 
+          ...prev, 
+          ...result.quickSettings,
+          translateEnabled: result.quickSettings.translateEnabled || false,
+          targetLanguage: result.quickSettings.targetLanguage || 'en'
+        }));
       }
     });
 
     // Load font size multiplier
-    chrome.storage.sync.get(['fontSizeMultiplier'], (result) => {
+    chrome.storage.sync.get(['fontSizeMultiplier'], (result: { [key: string]: any }) => {
       if (result.fontSizeMultiplier) {
         setFontSizeMultiplier(result.fontSizeMultiplier);
       }
+    });
+
+    // Load and track usage count
+    chrome.storage.local.get(['usageCount'], (result: { [key: string]: any }) => {
+      const count = result.usageCount || 0;
+      setUsageCount(count);
     });
   }, []);
 
@@ -85,6 +102,16 @@ function App() {
           ...prev,
           enabled: response.enabled
         }));
+        
+        // Track usage when enabled
+        if (response.enabled) {
+          chrome.storage.local.get(['usageCount'], (result: { [key: string]: any }) => {
+            const newCount = (result.usageCount || 0) + 1;
+            chrome.storage.local.set({ usageCount: newCount }, () => {
+              setUsageCount(newCount);
+            });
+          });
+        }
       }
       setLoading(false);
     });
@@ -133,7 +160,7 @@ function App() {
   };
 
   useEffect(() => {
-    chrome.storage.sync.get(['customSettings'], (result) => {
+    chrome.storage.sync.get(['customSettings'], (result: { [key: string]: any }) => {
       if (result.customSettings) {
         setCustomSettings(result.customSettings);
       }
@@ -150,6 +177,10 @@ function App() {
             chrome.tabs.sendMessage(tabs[0].id, {
               action: 'updateQuickSettings',
               quickSettings: newSettings
+            }, () => {
+              if (chrome.runtime.lastError) {
+                console.error('[Popup] Error sending message:', chrome.runtime.lastError);
+              }
             });
           }
         });
@@ -214,7 +245,7 @@ function App() {
           </div>
           <div className="header-text">
             <h1>Accessibility Helper</h1>
-            <p className="subtitle">Universal web accessibility</p>
+            <p className="subtitle">Built for users with visual, cognitive, and reading needs</p>
           </div>
           <button 
             className="header-btn"
@@ -244,6 +275,13 @@ function App() {
       )}
 
       <main className="main">
+        {usageCount >= 3 && (
+          <ViralityPrompt 
+            usageCount={usageCount} 
+            onDismiss={() => setUsageCount(prev => prev + 1)}
+          />
+        )}
+        
         <div className="toggle-section">
           <div className="toggle-header">
             <span className="toggle-label">Enable Accessibility Mode</span>
@@ -335,6 +373,54 @@ function App() {
                   <option value="tritanopia">Tritanopia</option>
                 </select>
               </div>
+
+              {/* Language Translation */}
+              <div className="translation-control">
+                <div className="translation-toggle">
+                  <label className="toggle-label">
+                    <input
+                      type="checkbox"
+                      checked={quickSettings.translateEnabled || false}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        handleQuickSettingChange('translateEnabled', enabled);
+                        // If enabling, ensure a language is selected
+                        if (enabled && !quickSettings.targetLanguage) {
+                          handleQuickSettingChange('targetLanguage', 'es');
+                        }
+                      }}
+                    />
+                    <span>Translate Page</span>
+                  </label>
+                </div>
+                {quickSettings.translateEnabled && (
+                  <select
+                    value={quickSettings.targetLanguage || 'en'}
+                    onChange={(e) => {
+                      const lang = e.target.value;
+                      handleQuickSettingChange('targetLanguage', lang);
+                    }}
+                    className="language-select"
+                  >
+                    <option value="auto">Auto-detect</option>
+                    <option value="en">English</option>
+                    <option value="es">Spanish (Español)</option>
+                    <option value="fr">French (Français)</option>
+                    <option value="de">German (Deutsch)</option>
+                    <option value="it">Italian (Italiano)</option>
+                    <option value="pt">Portuguese (Português)</option>
+                    <option value="ru">Russian (Русский)</option>
+                    <option value="ja">Japanese (日本語)</option>
+                    <option value="ko">Korean (한국어)</option>
+                    <option value="zh">Chinese (中文)</option>
+                    <option value="ar">Arabic (العربية)</option>
+                    <option value="hi">Hindi (हिन्दी)</option>
+                    <option value="nl">Dutch (Nederlands)</option>
+                    <option value="pl">Polish (Polski)</option>
+                    <option value="tr">Turkish (Türkçe)</option>
+                  </select>
+                )}
+              </div>
             </div>
 
             <div className="profiles-section">
@@ -383,6 +469,11 @@ function App() {
             <p className="info-text">
               Click the toggle above to enable accessibility improvements on the current page.
             </p>
+            <div className="info-highlight">
+              <p className="info-highlight-text">
+                Built for users with low vision, dyslexia, cognitive differences, and reading challenges
+              </p>
+            </div>
             <ul className="features-list">
               <li>✓ Better fonts and spacing</li>
               <li>✓ High contrast mode</li>
@@ -395,7 +486,7 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>Privacy-first • Works everywhere</p>
+        <p>Privacy-first • Built for accessibility • Works everywhere</p>
       </footer>
 
       <SettingsPanel

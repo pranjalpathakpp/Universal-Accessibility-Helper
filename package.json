@@ -1,6 +1,6 @@
 {
   "name": "universal-accessibility-helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "One-click accessibility improvements for any website",
   "author": "Pranjal Pathak",
   "license": "MIT",
@@ -17,6 +17,7 @@
     "generate-icons": "node scripts/generate-icons.js",
     "generate-icons:sharp": "node scripts/generate-icons-with-sharp.js"
   },
+  "dependencies": {},
   "devDependencies": {
     "esbuild": "^0.19.11",
     "sharp": "^0.34.5",

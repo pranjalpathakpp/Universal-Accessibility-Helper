@@ -11,6 +11,9 @@ async function buildContent() {
     external: ['chrome'],
     sourcemap: false,
     minify: false,
+    // Remove all console.* calls in production (including console.log, console.warn, console.info)
+    // console.error is also removed - if you need errors, use a custom logger
+    drop: ['console'],
   });
   console.log('✅ Content script built');
 }
@@ -26,6 +29,9 @@ async function buildBackground() {
     external: ['chrome'],
     sourcemap: false,
     minify: false,
+    // Remove all console.* calls in production (including console.log, console.warn, console.info)
+    // console.error is also removed - if you need errors, use a custom logger
+    drop: ['console'],
   });
   console.log('✅ Background worker built');
 }

@@ -2,6 +2,7 @@ import { getProfile, applyProfile, type ProfileId, type AccessibilityProfile } f
 import { simplifyPageText } from '../utils/textSimplifier';
 import { enhancePageAria, removeAriaEnhancements } from '../utils/ariaEnhancer';
 import { applyCognitiveReduction, removeCognitiveReduction } from '../utils/cognitiveReducer';
+import { translatePage, restoreOriginalText, setTargetLanguage, loadSettings as loadTranslateSettings } from '../utils/translator';
 
 
 function injectStyles(): void {
@@ -115,53 +116,84 @@ function injectStyles(): void {
       transition: none !important;
     }
 
-    /* Reading Mode */
-    .a11y-reading-mode {
+    /* Reading Mode - Better implementation that doesn't break the page */
+    .a11y-reading-mode body {
       max-width: 800px !important;
       margin: 0 auto !important;
+      padding: 20px !important;
     }
 
-    .a11y-reading-mode body > *:not(main):not(article):not([role="main"]):not([role="article"]) {
+    /* Hide navigation and sidebars, but keep main content */
+    .a11y-reading-mode header:not([role="banner"]):not(main header):not(article header),
+    .a11y-reading-mode nav:not([role="navigation"]):not(main nav):not(article nav),
+    .a11y-reading-mode aside:not(main aside):not(article aside),
+    .a11y-reading-mode footer:not([role="contentinfo"]):not(main footer):not(article footer),
+    .a11y-reading-mode .sidebar:not(main .sidebar):not(article .sidebar),
+    .a11y-reading-mode .navigation:not(main .navigation):not(article .navigation),
+    .a11y-reading-mode .menu:not(main .menu):not(article .menu),
+    .a11y-reading-mode .advertisement:not(main .advertisement):not(article .advertisement),
+    .a11y-reading-mode [class*="ad-"]:not(main [class*="ad-"]):not(article [class*="ad-"]),
+    .a11y-reading-mode [class*="sidebar"]:not(main [class*="sidebar"]):not(article [class*="sidebar"]),
+    .a11y-reading-mode [class*="nav"]:not(nav):not(main [class*="nav"]):not(article [class*="nav"]) {
       display: none !important;
     }
 
+    /* Ensure main content is visible and properly styled */
     .a11y-reading-mode main,
     .a11y-reading-mode article,
     .a11y-reading-mode [role="main"],
-    .a11y-reading-mode [role="article"] {
+    .a11y-reading-mode [role="article"],
+    .a11y-reading-mode .content:not(header .content):not(nav .content):not(footer .content),
+    .a11y-reading-mode .post:not(header .post):not(nav .post):not(footer .post),
+    .a11y-reading-mode .entry:not(header .entry):not(nav .entry):not(footer .entry) {
       max-width: 100% !important;
       padding: 40px 20px !important;
-      background: #fafafa !important;
+      background: transparent !important;
+      display: block !important;
     }
 
-    /* Reading Ruler */
+    /* Fallback: if no main/article found, show body content */
+    .a11y-reading-mode body > *:not(header):not(nav):not(aside):not(footer):not(script):not(style) {
+      display: block !important;
+    }
+
+    /* Reading Ruler - Elegant purple that works on both light and dark backgrounds */
     .a11y-reading-ruler {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 2px;
-      background: rgba(102, 126, 234, 0.5);
+      height: 4px;
+      background: linear-gradient(90deg, transparent 0%, #9d4edd 20%, #7b2cbf 50%, #9d4edd 80%, transparent 100%) !important;
       pointer-events: none;
       z-index: 999999;
-      box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 0 20px rgba(157, 78, 221, 0.6), 0 0 10px rgba(123, 44, 191, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.2);
       display: none;
+      opacity: 0.9;
+      transition: opacity 0.2s ease;
     }
 
     .a11y-reading-ruler.active {
       display: block;
+      opacity: 1;
     }
 
-    /* Color Blind Filters */
-    .a11y-color-blind-protanopia {
+    /* Ensure ruler is visible in dark mode with enhanced glow */
+    .a11y-dark-mode .a11y-reading-ruler {
+      background: linear-gradient(90deg, transparent 0%, #c77dff 20%, #9d4edd 50%, #c77dff 80%, transparent 100%) !important;
+      box-shadow: 0 0 25px rgba(199, 125, 255, 0.8), 0 0 15px rgba(157, 78, 221, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.3);
+    }
+
+    /* Color Blind Filters - Applied before dark mode */
+    .a11y-color-blind-protanopia:not(.a11y-dark-mode) {
       filter: url(#protanopia);
     }
 
-    .a11y-color-blind-deuteranopia {
+    .a11y-color-blind-deuteranopia:not(.a11y-dark-mode) {
       filter: url(#deuteranopia);
     }
 
-    .a11y-color-blind-tritanopia {
+    .a11y-color-blind-tritanopia:not(.a11y-dark-mode) {
       filter: url(#tritanopia);
     }
 
@@ -174,6 +206,34 @@ function injectStyles(): void {
     .a11y-dark-mode video,
     .a11y-dark-mode iframe,
     .a11y-dark-mode canvas {
+      filter: invert(1) hue-rotate(180deg);
+    }
+
+    /* Color Blind Filters for Dark Mode - Apply after dark mode inversion */
+    .a11y-dark-mode.a11y-color-blind-protanopia {
+      filter: invert(1) hue-rotate(180deg) url(#protanopia);
+    }
+
+    .a11y-dark-mode.a11y-color-blind-deuteranopia {
+      filter: invert(1) hue-rotate(180deg) url(#deuteranopia);
+    }
+
+    .a11y-dark-mode.a11y-color-blind-tritanopia {
+      filter: invert(1) hue-rotate(180deg) url(#tritanopia);
+    }
+
+    .a11y-dark-mode.a11y-color-blind-protanopia img,
+    .a11y-dark-mode.a11y-color-blind-protanopia video,
+    .a11y-dark-mode.a11y-color-blind-protanopia iframe,
+    .a11y-dark-mode.a11y-color-blind-protanopia canvas,
+    .a11y-dark-mode.a11y-color-blind-deuteranopia img,
+    .a11y-dark-mode.a11y-color-blind-deuteranopia video,
+    .a11y-dark-mode.a11y-color-blind-deuteranopia iframe,
+    .a11y-dark-mode.a11y-color-blind-deuteranopia canvas,
+    .a11y-dark-mode.a11y-color-blind-tritanopia img,
+    .a11y-dark-mode.a11y-color-blind-tritanopia video,
+    .a11y-dark-mode.a11y-color-blind-tritanopia iframe,
+    .a11y-dark-mode.a11y-color-blind-tritanopia canvas {
       filter: invert(1) hue-rotate(180deg);
     }
 
@@ -253,6 +313,22 @@ function injectStyles(): void {
 function removeEnhancements(): void {
   console.log('[A11y] Removing all enhancements');
   
+  // Clean up reading ruler handlers first
+  if (rulerMouseMoveHandler) {
+    document.removeEventListener('mousemove', rulerMouseMoveHandler);
+    rulerMouseMoveHandler = null;
+  }
+  if (rulerScrollHandler) {
+    window.removeEventListener('scroll', rulerScrollHandler);
+    rulerScrollHandler = null;
+  }
+  
+  // Remove all reading rulers (prevent duplicates)
+  document.querySelectorAll('#a11y-reading-ruler').forEach(ruler => {
+    ruler.remove();
+  });
+  
+  // Remove reading mode class first to restore hidden elements
   document.documentElement.classList.remove(
     'a11y-enabled',
     'a11y-high-contrast',
@@ -266,14 +342,10 @@ function removeEnhancements(): void {
     'a11y-color-blind-tritanopia'
   );
   
-  // Remove reading ruler
-  const ruler = document.getElementById('a11y-reading-ruler');
-  if (ruler) {
-    ruler.remove();
-  }
-  
-  
   document.documentElement.removeAttribute('data-a11y-profile');
+  
+  // Reset mouse position
+  lastMouseY = 0;
   
   
   const cssVars = [
@@ -296,6 +368,9 @@ function removeEnhancements(): void {
   removeAriaEnhancements();
 
   removeCognitiveReduction();
+  
+  // Restore original text if translated
+  restoreOriginalText();
   
   document.querySelectorAll('[data-a11y-original-text]').forEach(el => {
     const originalText = el.getAttribute('data-a11y-original-text');
@@ -332,13 +407,38 @@ interface QuickSettings {
   colorBlindMode?: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
   readingRuler?: boolean;
   darkMode?: boolean;
+  translateEnabled?: boolean;
+  targetLanguage?: string;
 }
 
 let currentQuickSettings: QuickSettings = {};
 let currentFontSizeMultiplier = 1.0;
 
+let profileSwitchTimeout: number | null = null;
+let isSwitchingProfile = false;
+let pendingProfileSwitch: { profileId: ProfileId; customSettings?: Partial<AccessibilityProfile>; quickSettings?: QuickSettings; fontSizeMultiplier?: number } | null = null;
+
+// Reading ruler handlers
+let rulerMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+let rulerScrollHandler: (() => void) | null = null;
+let lastMouseY = 0;
+
 function applyAccessibility(profileId: ProfileId, customSettings?: Partial<AccessibilityProfile>, quickSettings?: QuickSettings, fontSizeMultiplier?: number): void {
   console.log('[A11y] Applying profile:', profileId);
+  
+  // Store the latest request
+  pendingProfileSwitch = { profileId, customSettings, quickSettings, fontSizeMultiplier };
+  
+  // Clear any pending profile switches
+  if (profileSwitchTimeout !== null) {
+    clearTimeout(profileSwitchTimeout);
+    profileSwitchTimeout = null;
+  }
+  
+  // If already switching, queue this request
+  if (isSwitchingProfile) {
+    return; // The latest request is already stored in pendingProfileSwitch
+  }
   
   if (quickSettings) {
     currentQuickSettings = quickSettings;
@@ -348,15 +448,77 @@ function applyAccessibility(profileId: ProfileId, customSettings?: Partial<Acces
     currentFontSizeMultiplier = fontSizeMultiplier;
   }
   
+  isSwitchingProfile = true;
+  
   if (document.documentElement.classList.contains('a11y-enabled')) {
     console.log('[A11y] Removing old enhancements before applying new profile');
-    removeEnhancements();
     
-    setTimeout(() => {
-      applyProfileInternal(profileId, customSettings);
-    }, 50);
+    // Remove enhancements synchronously but carefully
+    try {
+      removeEnhancements();
+    } catch (error: any) {
+      console.error('[A11y] Error removing enhancements:', error);
+    }
+    
+    // Wait for DOM to stabilize before applying new profile
+    // Use multiple requestAnimationFrame calls to ensure DOM is ready
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Check if there's a newer pending request
+        if (pendingProfileSwitch) {
+          const latest = pendingProfileSwitch;
+          pendingProfileSwitch = null;
+          
+          if (latest.quickSettings) {
+            currentQuickSettings = latest.quickSettings;
+          }
+          if (latest.fontSizeMultiplier !== undefined) {
+            currentFontSizeMultiplier = latest.fontSizeMultiplier;
+          }
+          
+          profileSwitchTimeout = window.setTimeout(() => {
+            try {
+              applyProfileInternal(latest.profileId, latest.customSettings);
+            } catch (error: any) {
+              console.error('[A11y] Error applying profile:', error);
+            } finally {
+              isSwitchingProfile = false;
+              profileSwitchTimeout = null;
+              
+              // Process any new pending request after a short delay
+              if (pendingProfileSwitch) {
+                const next = pendingProfileSwitch;
+                pendingProfileSwitch = null;
+                setTimeout(() => {
+                  applyAccessibility(next.profileId, next.customSettings, next.quickSettings, next.fontSizeMultiplier);
+                }, 150);
+              }
+            }
+          }, 300);
+        } else {
+          profileSwitchTimeout = window.setTimeout(() => {
+            try {
+              applyProfileInternal(profileId, customSettings);
+            } catch (error: any) {
+              console.error('[A11y] Error applying profile:', error);
+            } finally {
+              isSwitchingProfile = false;
+              profileSwitchTimeout = null;
+              pendingProfileSwitch = null;
+            }
+          }, 300);
+        }
+      });
+    });
   } else {
-    applyProfileInternal(profileId, customSettings);
+    try {
+      applyProfileInternal(profileId, customSettings);
+    } catch (error: any) {
+      console.error('[A11y] Error applying profile:', error);
+    } finally {
+      isSwitchingProfile = false;
+      pendingProfileSwitch = null;
+    }
   }
 }
 
@@ -416,6 +578,18 @@ function applyProfileWithSettings(profile: AccessibilityProfile, profileId: Prof
       createReadingRuler();
     }
     
+    // Apply translation if enabled
+    if (currentQuickSettings.translateEnabled && currentQuickSettings.targetLanguage && currentQuickSettings.targetLanguage !== 'auto') {
+      loadTranslateSettings().then(() => {
+        setTargetLanguage(currentQuickSettings.targetLanguage || 'en');
+        setTimeout(() => {
+          translatePage(currentQuickSettings.targetLanguage || 'en').catch((error: any) => {
+            console.error('[A11y] Error translating page:', error);
+          });
+        }, 1000); // Delay to let other features apply first
+      });
+    }
+    
     // Use requestIdleCallback for non-critical operations
     const applyNonCriticalFeatures = () => {
       try {
@@ -452,53 +626,59 @@ function applyProfileWithSettings(profile: AccessibilityProfile, profileId: Prof
 }
 
 function createReadingRuler(): void {
-  let ruler = document.getElementById('a11y-reading-ruler');
-  if (!ruler) {
-    if (!document.body) {
-      // Wait for body to be available
-      document.addEventListener('DOMContentLoaded', createReadingRuler, { once: true });
-      return;
-    }
-    
-    ruler = document.createElement('div');
-    ruler.id = 'a11y-reading-ruler';
-    ruler.className = 'a11y-reading-ruler';
-    document.body.appendChild(ruler);
-    
-    let lastMouseY = 0;
-    
-    const updateRuler = (y: number) => {
-      if (currentQuickSettings.readingRuler && ruler) {
-        ruler.style.top = `${y}px`;
-        ruler.classList.add('active');
-        lastMouseY = y;
-      }
-    };
-    
-    const mouseMoveHandler = (e: MouseEvent) => {
-      if (currentQuickSettings.readingRuler) {
-        updateRuler(e.clientY);
-      }
-    };
-    
-    document.addEventListener('mousemove', mouseMoveHandler, { passive: true });
-    
-    const handleScroll = () => {
-      if (currentQuickSettings.readingRuler && ruler && lastMouseY > 0) {
-        const scrollY = window.scrollY || window.pageYOffset;
-        ruler.style.top = `${lastMouseY + scrollY}px`;
-        ruler.classList.add('active');
-      }
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Store handlers for cleanup
-    (ruler as any)._scrollHandler = handleScroll;
-    (ruler as any)._mouseMoveHandler = mouseMoveHandler;
-  } else {
-    ruler.classList.add('active');
+  // Remove any existing ruler first to prevent duplicates
+  const existingRuler = document.getElementById('a11y-reading-ruler');
+  if (existingRuler) {
+    existingRuler.remove();
   }
+  
+  // Clean up existing handlers
+  if (rulerMouseMoveHandler) {
+    document.removeEventListener('mousemove', rulerMouseMoveHandler);
+    rulerMouseMoveHandler = null;
+  }
+  if (rulerScrollHandler) {
+    window.removeEventListener('scroll', rulerScrollHandler);
+    rulerScrollHandler = null;
+  }
+  
+  if (!document.body) {
+    // Wait for body to be available
+    document.addEventListener('DOMContentLoaded', createReadingRuler, { once: true });
+    return;
+  }
+  
+  const ruler = document.createElement('div');
+  ruler.id = 'a11y-reading-ruler';
+  ruler.className = 'a11y-reading-ruler';
+  document.body.appendChild(ruler);
+  
+  const updateRuler = (y: number) => {
+    if (currentQuickSettings.readingRuler && ruler) {
+      ruler.style.top = `${y}px`;
+      ruler.classList.add('active');
+      lastMouseY = y;
+    }
+  };
+  
+  rulerMouseMoveHandler = (e: MouseEvent) => {
+    if (currentQuickSettings.readingRuler) {
+      updateRuler(e.clientY);
+    }
+  };
+  
+  rulerScrollHandler = () => {
+    if (currentQuickSettings.readingRuler && ruler && lastMouseY > 0) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      ruler.style.top = `${lastMouseY + scrollY}px`;
+      ruler.classList.add('active');
+    }
+  };
+  
+  document.addEventListener('mousemove', rulerMouseMoveHandler, { passive: true });
+  window.addEventListener('scroll', rulerScrollHandler, { passive: true });
+  
+  ruler.classList.add('active');
 }
 
 function updateQuickSettings(quickSettings: QuickSettings): void {
@@ -538,18 +718,68 @@ function updateQuickSettings(quickSettings: QuickSettings): void {
     if (quickSettings.readingRuler) {
       createReadingRuler();
     } else {
-      const ruler = document.getElementById('a11y-reading-ruler');
-      if (ruler) {
-        ruler.classList.remove('active');
-        const scrollHandler = (ruler as any)._scrollHandler;
-        const mouseMoveHandler = (ruler as any)._mouseMoveHandler;
-        if (scrollHandler) {
-          window.removeEventListener('scroll', scrollHandler);
-        }
-        if (mouseMoveHandler) {
-          document.removeEventListener('mousemove', mouseMoveHandler);
-        }
+      // Remove all rulers and clean up handlers
+      document.querySelectorAll('#a11y-reading-ruler').forEach(ruler => {
+        ruler.remove();
+      });
+      if (rulerMouseMoveHandler) {
+        document.removeEventListener('mousemove', rulerMouseMoveHandler);
+        rulerMouseMoveHandler = null;
       }
+      if (rulerScrollHandler) {
+        window.removeEventListener('scroll', rulerScrollHandler);
+        rulerScrollHandler = null;
+      }
+      lastMouseY = 0;
+    }
+  }
+
+  // Update translation (works without page refresh)
+  if (quickSettings.translateEnabled !== undefined || quickSettings.targetLanguage !== undefined) {
+    console.log('[A11y] Translation settings changed:', {
+      enabled: quickSettings.translateEnabled,
+      targetLang: quickSettings.targetLanguage
+    });
+    
+    if (quickSettings.translateEnabled && quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto') {
+      console.log('[A11y] Translation enabled, target language:', quickSettings.targetLanguage);
+      
+      // If already translated, restore first, then retranslate
+      if (document.querySelectorAll('[data-a11y-translated="true"]').length > 0) {
+        console.log('[A11y] Restoring original text before retranslating...');
+        restoreOriginalText();
+      }
+      
+      loadTranslateSettings().then(() => {
+        setTargetLanguage(quickSettings.targetLanguage || 'en');
+        // Start translation immediately (no need to wait for DOM, page is already loaded)
+        const startTranslation = () => {
+          console.log('[A11y] Starting page translation (no refresh needed)...');
+          translatePage(quickSettings.targetLanguage || 'en').catch((error: any) => {
+            console.error('[A11y] Error translating page:', error);
+          });
+        };
+        
+        // Small delay to ensure DOM is stable
+        setTimeout(startTranslation, 300);
+      }).catch((error: any) => {
+        console.error('[A11y] Error loading translate settings:', error);
+      });
+    } else if (quickSettings.translateEnabled === false) {
+      console.log('[A11y] Translation disabled, restoring original text');
+      restoreOriginalText();
+    } else if (quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto' && quickSettings.translateEnabled) {
+      // Language changed, retranslate
+      console.log('[A11y] Target language changed, retranslating...');
+      restoreOriginalText();
+      loadTranslateSettings().then(() => {
+        setTargetLanguage(quickSettings.targetLanguage || 'en');
+        setTimeout(() => {
+          translatePage(quickSettings.targetLanguage || 'en').catch((error: any) => {
+            console.error('[A11y] Error retranslating page:', error);
+          });
+        }, 300);
+      });
     }
   }
 }
@@ -605,11 +835,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ enabled: isEnabled });
   } else if (message.action === 'updateQuickSettings') {
     try {
+      console.log('[A11y] Updating quick settings:', message.quickSettings);
       updateQuickSettings(message.quickSettings);
       sendResponse({ success: true });
     } catch (error: any) {
       console.error('[A11y] Error updating quick settings:', error);
       sendResponse({ success: false, error: error.message });
+    }
+  } else if (message.action === 'translate') {
+    // This is a direct translation request from content script
+    try {
+      const { text, targetLang } = message;
+      console.log('[A11y] Direct translate request:', { textLength: text?.length, targetLang });
+      
+      if (!text || !targetLang || targetLang === 'auto') {
+        sendResponse({ translatedText: text || '' });
+        return true;
+      }
+
+      // Forward to background worker
+      chrome.runtime.sendMessage({
+        action: 'translate',
+        text: text,
+        targetLang: targetLang
+      }, (response: any) => {
+        if (chrome.runtime.lastError) {
+          console.error('[A11y] Translation runtime error:', chrome.runtime.lastError);
+          sendResponse({ translatedText: text });
+        } else if (response && response.translatedText) {
+          sendResponse({ translatedText: response.translatedText });
+        } else {
+          sendResponse({ translatedText: text });
+        }
+      });
+      
+      return true; // Keep channel open for async response
+    } catch (error: any) {
+      console.error('[A11y] Error in translate handler:', error);
+      sendResponse({ translatedText: message.text || '' });
+      return true;
     }
   } else if (message.action === 'updateFontSize') {
     try {

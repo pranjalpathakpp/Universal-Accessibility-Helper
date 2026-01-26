@@ -14,7 +14,7 @@ export default function SettingsPanel({ isOpen, onClose, onSave, currentSettings
   const [settings, setSettings] = useState<Partial<AccessibilityProfile>>(currentSettings);
 
   useEffect(() => {
-    chrome.storage.sync.get(['customSettings'], (result) => {
+    chrome.storage.sync.get(['customSettings'], (result: { [key: string]: any }) => {
       if (result.customSettings) {
         setSettings({ ...currentSettings, ...result.customSettings });
       } else {
@@ -200,6 +200,7 @@ export default function SettingsPanel({ isOpen, onClose, onSave, currentSettings
               <p className="toggle-desc">Stop moving elements</p>
             </div>
           </div>
+
         </div>
 
         <div className="settings-footer">

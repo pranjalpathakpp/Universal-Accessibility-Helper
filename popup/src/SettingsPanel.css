@@ -141,6 +141,9 @@ select:focus {
   padding: 12px;
   background: #f8f9fa;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .toggle-label {
@@ -151,6 +154,8 @@ select:focus {
   font-weight: 500;
   font-size: 14px;
   color: #333;
+  width: 100%;
+  margin-bottom: 4px;
 }
 
 .toggle-label input[type="checkbox"] {
@@ -158,12 +163,19 @@ select:focus {
   height: 18px;
   cursor: pointer;
   accent-color: #667eea;
+  flex-shrink: 0;
+}
+
+.toggle-label span {
+  flex: 1;
 }
 
 .toggle-desc {
   margin: 4px 0 0 28px;
   font-size: 12px;
   color: #666;
+  line-height: 1.4;
+  width: calc(100% - 28px);
 }
 
 .settings-footer {
@@ -194,5 +206,86 @@ select:focus {
 
 .save-btn:active {
   transform: scale(0.98);
+}
+
+/* Translation Settings */
+.translation-info-section {
+  margin-top: 12px;
+}
+
+.translation-info-box {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%);
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.translation-info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 6px 0;
+}
+
+.translation-info-text {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.translation-control {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.translation-toggle {
+  margin-bottom: 12px;
+}
+
+.translation-toggle .toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  color: #333;
+}
+
+.translation-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.language-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.language-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.translation-note {
+  font-size: 11px;
+  color: #666;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  line-height: 1.4;
 }
 

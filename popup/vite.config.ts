@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     outDir: '../dist/popup',
     emptyOutDir: true,
+    minify: 'esbuild', // Use esbuild minifier (faster, built-in, removes dead code)
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html')
