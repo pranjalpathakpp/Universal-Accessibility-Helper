@@ -13,13 +13,17 @@ chrome.action.onClicked.addListener((tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'toggle') {
-    chrome.storage.sync.get(['enabled', 'profileId'], (result) => {
+    chrome.storage.sync.get(['enabled', 'profileId', 'quickSettings', 'fontSizeMultiplier'], (result) => {
       const newEnabled = !result.enabled;
       const profileId = message.profileId || result.profileId || 'lowVision';
+      const quickSettings = message.quickSettings || result.quickSettings || {};
+      const fontSizeMultiplier = message.fontSizeMultiplier || result.fontSizeMultiplier || 1.0;
       
       chrome.storage.sync.set({
         enabled: newEnabled,
-        profileId: profileId
+        profileId: profileId,
+        quickSettings: quickSettings,
+        fontSizeMultiplier: fontSizeMultiplier
       }, () => {
         chrome.tabs.query({}, (tabs) => {
           tabs.forEach(tab => {
@@ -29,9 +33,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 !tab.url.startsWith('edge://')) {
               chrome.tabs.sendMessage(tab.id, {
                 action: newEnabled ? 'enable' : 'disable',
-                profileId: profileId
+                profileId: profileId,
+                quickSettings: quickSettings,
+                fontSizeMultiplier: fontSizeMultiplier
               }).catch((error) => {
-                
                 console.log('[A11y Background] Could not send message to tab:', tab.id, error);
               });
             }
@@ -46,31 +51,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'setProfile') {
-    const updateData: any = { profileId: message.profileId };
+    chrome.storage.sync.get(['quickSettings', 'fontSizeMultiplier'], (storageResult) => {
+      const updateData: any = { profileId: message.profileId };
 
-    if (message.profileId === 'custom' && message.customSettings) {
-      updateData.customSettings = message.customSettings;
-    }
-    
-    chrome.storage.sync.set(updateData, () => {
+      if (message.profileId === 'custom' && message.customSettings) {
+        updateData.customSettings = message.customSettings;
+      }
       
-      chrome.storage.sync.get(['enabled'], (result) => {
-        if (result.enabled) {
-          chrome.tabs.query({}, (tabs) => {
-            tabs.forEach(tab => {
-              if (tab.id) {
-                chrome.tabs.sendMessage(tab.id, {
-                  action: 'enable',
-                  profileId: message.profileId,
-                  customSettings: message.customSettings
-                }).catch(() => {});
-              }
+      chrome.storage.sync.set(updateData, () => {
+        chrome.storage.sync.get(['enabled'], (result) => {
+          if (result.enabled) {
+            chrome.tabs.query({}, (tabs) => {
+              tabs.forEach(tab => {
+                if (tab.id) {
+                  chrome.tabs.sendMessage(tab.id, {
+                    action: 'enable',
+                    profileId: message.profileId,
+                    customSettings: message.customSettings,
+                    quickSettings: storageResult.quickSettings || {},
+                    fontSizeMultiplier: storageResult.fontSizeMultiplier || 1.0
+                  }).catch(() => {});
+                }
+              });
             });
-          });
-        }
+          }
+        });
+        
+        sendResponse({ success: true });
       });
-      
-      sendResponse({ success: true });
     });
     
     return true;

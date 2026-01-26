@@ -9,12 +9,14 @@
     "strict": true,
     "resolveJsonModule": true,
     "declaration": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
   "include": [
     "content/**/*",
     "background/**/*",
-    "utils/**/*"
+    "utils/**/*",
+    "types/**/*"
   ],
   "exclude": [
     "node_modules",

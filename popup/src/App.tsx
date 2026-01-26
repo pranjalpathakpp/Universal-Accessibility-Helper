@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { PROFILES, type ProfileId, type AccessibilityProfile } from './profiles';
 import { 
   FiEye, 
@@ -6,7 +6,13 @@ import {
   FiCpu, 
   FiSettings,
   FiCheck,
-  FiZap
+  FiZap,
+  FiType,
+  FiMinus,
+  FiPlus,
+  FiMoon,
+  FiSun,
+  FiHelpCircle
 } from 'react-icons/fi';
 import SettingsPanel from './SettingsPanel';
 import './App.css';
@@ -14,6 +20,13 @@ import './App.css';
 interface ExtensionState {
   enabled: boolean;
   profileId: ProfileId;
+}
+
+interface QuickSettings {
+  readingMode: boolean;
+  colorBlindMode: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
+  readingRuler: boolean;
+  darkMode: boolean;
 }
 
 function App() {
@@ -24,6 +37,14 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [customSettings, setCustomSettings] = useState<Partial<AccessibilityProfile>>(PROFILES.custom);
+  const [quickSettings, setQuickSettings] = useState<QuickSettings>({
+    readingMode: false,
+    colorBlindMode: 'none',
+    readingRuler: false,
+    darkMode: false
+  });
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
+  const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1.0);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
@@ -35,13 +56,29 @@ function App() {
       }
       setLoading(false);
     });
+
+    // Load quick settings
+    chrome.storage.sync.get(['quickSettings'], (result) => {
+      if (result.quickSettings) {
+        setQuickSettings(prev => ({ ...prev, ...result.quickSettings }));
+      }
+    });
+
+    // Load font size multiplier
+    chrome.storage.sync.get(['fontSizeMultiplier'], (result) => {
+      if (result.fontSizeMultiplier) {
+        setFontSizeMultiplier(result.fontSizeMultiplier);
+      }
+    });
   }, []);
 
-  const handleToggle = () => {
+  const handleToggle = useCallback(() => {
     setLoading(true);
     chrome.runtime.sendMessage({
       action: 'toggle',
-      profileId: state.profileId
+      profileId: state.profileId,
+      quickSettings: quickSettings,
+      fontSizeMultiplier: fontSizeMultiplier
     }, (response) => {
       if (response) {
         setState(prev => ({
@@ -51,7 +88,7 @@ function App() {
       }
       setLoading(false);
     });
-  };
+  }, [state.profileId, quickSettings, fontSizeMultiplier]);
 
   const handleProfileChange = (profileId: ProfileId) => {
     if (profileId === 'custom' && !showSettings) {
@@ -96,13 +133,69 @@ function App() {
   };
 
   useEffect(() => {
-    
     chrome.storage.sync.get(['customSettings'], (result) => {
       if (result.customSettings) {
         setCustomSettings(result.customSettings);
       }
     });
   }, []);
+
+  const handleQuickSettingChange = useCallback((key: keyof QuickSettings, value: any) => {
+    const newSettings = { ...quickSettings, [key]: value };
+    setQuickSettings(newSettings);
+    chrome.storage.sync.set({ quickSettings: newSettings }, () => {
+      if (state.enabled) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]?.id) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+              action: 'updateQuickSettings',
+              quickSettings: newSettings
+            });
+          }
+        });
+      }
+    });
+  }, [quickSettings, state.enabled]);
+
+  const handleFontSizeAdjust = (delta: number) => {
+    const newMultiplier = Math.max(0.5, Math.min(3.0, fontSizeMultiplier + delta));
+    setFontSizeMultiplier(newMultiplier);
+    chrome.storage.sync.set({ fontSizeMultiplier: newMultiplier }, () => {
+      if (state.enabled) {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]?.id) {
+            chrome.tabs.sendMessage(tabs[0].id, {
+              action: 'updateFontSize',
+              fontSizeMultiplier: newMultiplier
+            });
+          }
+        });
+      }
+    });
+  };
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 'k':
+            e.preventDefault();
+            handleToggle();
+            break;
+          case 'r':
+            if (state.enabled) {
+              e.preventDefault();
+              handleQuickSettingChange('readingMode', !quickSettings.readingMode);
+            }
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [handleToggle, state.enabled, quickSettings.readingMode, handleQuickSettingChange]);
 
   if (loading && state.enabled === false) {
     return (
@@ -115,12 +208,40 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="header-icon">
-          <FiZap size={24} />
+        <div className="header-content">
+          <div className="header-icon">
+            <FiZap size={24} />
+          </div>
+          <div className="header-text">
+            <h1>Accessibility Helper</h1>
+            <p className="subtitle">Universal web accessibility</p>
+          </div>
+          <button 
+            className="header-btn"
+            onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}
+            title="Keyboard Shortcuts"
+            aria-label="Show keyboard shortcuts"
+          >
+            <FiHelpCircle size={18} />
+          </button>
         </div>
-        <h1>Accessibility Helper</h1>
-        <p className="subtitle">Universal web accessibility</p>
       </header>
+
+      {showKeyboardShortcuts && (
+        <div className="keyboard-shortcuts-panel">
+          <h3>Keyboard Shortcuts</h3>
+          <div className="shortcuts-list">
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + K</kbd>
+              <span>Toggle accessibility mode</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + R</kbd>
+              <span>Toggle reading mode</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="main">
         <div className="toggle-section">
@@ -145,9 +266,80 @@ function App() {
         </div>
 
         {state.enabled && (
-          <div className="profiles-section">
-            <h2>Accessibility Profile</h2>
-            <div className="profiles-grid">
+          <>
+            {/* Quick Actions */}
+            <div className="quick-actions-section">
+              <h2>Quick Actions</h2>
+              <div className="quick-actions-grid">
+                <button
+                  className={`quick-action-btn ${quickSettings.readingMode ? 'active' : ''}`}
+                  onClick={() => handleQuickSettingChange('readingMode', !quickSettings.readingMode)}
+                  title="Reading Mode - Focus on content"
+                >
+                  <FiBookOpen size={18} />
+                  <span>Reading Mode</span>
+                </button>
+                <button
+                  className={`quick-action-btn ${quickSettings.readingRuler ? 'active' : ''}`}
+                  onClick={() => handleQuickSettingChange('readingRuler', !quickSettings.readingRuler)}
+                  title="Reading Ruler - Highlight reading line"
+                >
+                  <FiType size={18} />
+                  <span>Reading Ruler</span>
+                </button>
+                <button
+                  className={`quick-action-btn ${quickSettings.darkMode ? 'active' : ''}`}
+                  onClick={() => handleQuickSettingChange('darkMode', !quickSettings.darkMode)}
+                  title="Dark Mode"
+                >
+                  {quickSettings.darkMode ? <FiSun size={18} /> : <FiMoon size={18} />}
+                  <span>Dark Mode</span>
+                </button>
+              </div>
+
+              {/* Font Size Quick Adjust */}
+              <div className="font-size-control">
+                <label>Font Size</label>
+                <div className="font-size-adjuster">
+                  <button
+                    className="font-size-btn"
+                    onClick={() => handleFontSizeAdjust(-0.1)}
+                    disabled={fontSizeMultiplier <= 0.5}
+                    aria-label="Decrease font size"
+                  >
+                    <FiMinus size={16} />
+                  </button>
+                  <span className="font-size-value">{fontSizeMultiplier.toFixed(1)}x</span>
+                  <button
+                    className="font-size-btn"
+                    onClick={() => handleFontSizeAdjust(0.1)}
+                    disabled={fontSizeMultiplier >= 3.0}
+                    aria-label="Increase font size"
+                  >
+                    <FiPlus size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Color Blind Support */}
+              <div className="color-blind-control">
+                <label>Color Vision</label>
+                <select
+                  value={quickSettings.colorBlindMode}
+                  onChange={(e) => handleQuickSettingChange('colorBlindMode', e.target.value)}
+                  className="color-blind-select"
+                >
+                  <option value="none">Normal</option>
+                  <option value="protanopia">Protanopia</option>
+                  <option value="deuteranopia">Deuteranopia</option>
+                  <option value="tritanopia">Tritanopia</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="profiles-section">
+              <h2>Accessibility Profile</h2>
+              <div className="profiles-grid">
               {Object.values(PROFILES).map((profile) => {
                 const getProfileIcon = (id: ProfileId) => {
                   switch (id) {
@@ -183,6 +375,7 @@ function App() {
               })}
             </div>
           </div>
+          </>
         )}
 
         {!state.enabled && (

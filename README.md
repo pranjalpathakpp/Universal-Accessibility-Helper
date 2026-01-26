@@ -2,6 +2,7 @@
 
 A privacy-first Chrome extension that provides one-click accessibility improvements for any website. Built with React, TypeScript, and Manifest V3.
 
+**Version:** 0.2.0  
 **Author:** Pranjal Pathak  
 **Role:** Software Engineer
 
@@ -11,14 +12,54 @@ Over 1 billion people globally experience some form of visual, cognitive, or neu
 
 This extension empowers users — not websites — to control how content is presented, making the web more readable, calm, and inclusive by default.
 
+## 🆕 What's New in v0.2.0
+
+### Major Features
+- **📖 Reading Mode**: Focus on content by hiding navigation and sidebars, with optimal reading width
+- **📏 Reading Ruler**: Visual line that follows your cursor to help track reading position
+- **🌙 Dark Mode**: Invert colors for better visibility in low-light conditions
+- **🎨 Color Blind Support**: Filters for Protanopia, Deuteranopia, and Tritanopia
+- **⌨️ Keyboard Shortcuts**: Quick access with `Ctrl/Cmd + K` to toggle, `Ctrl/Cmd + R` for reading mode
+- **🔤 Font Size Quick Adjust**: Real-time font size adjustment (0.5x - 3.0x) with visual controls
+
+### UI/UX Improvements
+- Modern, polished design with smooth animations
+- Quick action buttons for common features
+- Enhanced visual hierarchy and better contrast
+- Keyboard shortcuts help panel
+- Improved focus indicators for keyboard navigation
+
+### Performance & Reliability
+- Better error handling and graceful degradation
+- Performance optimizations using `requestIdleCallback`
+- Throttled mutation observer for better performance
+- Enhanced text simplification with 60+ word pairs
+- Improved ARIA enhancement algorithms
+
+### Technical Enhancements
+- Better TypeScript types and error handling
+- Improved state management and synchronization
+- Persistent storage for all settings
+- Better browser compatibility
+
 ## ✨ Features
 
+### Core Features
 - **Accessibility Profiles**: Pre-configured profiles for Low Vision, Dyslexia, Cognitive Load, and Custom settings
 - **Style Injection**: Dynamic font adjustments, contrast enhancement, and spacing improvements
 - **Text Simplification**: Rule-based text simplification (sentence shortening, word replacement, passive-voice reduction)
 - **ARIA Enhancement**: Automatic screen-reader hints and landmark improvements
 - **Cognitive Load Reduction**: Disables auto-play, reduces clutter, highlights key content
 - **Privacy-First**: All processing happens locally, no data sent to servers
+
+### New in v0.2.0
+- **Reading Mode**: Distraction-free reading experience
+- **Reading Ruler**: Visual reading line tracker
+- **Dark Mode**: Low-light viewing support
+- **Color Blind Filters**: Support for different types of color blindness
+- **Keyboard Shortcuts**: Quick access to common actions
+- **Font Size Quick Adjust**: Real-time font size control
+- **Enhanced Focus Indicators**: Better keyboard navigation visibility
 
 ## 🏗️ Architecture
 
@@ -89,6 +130,8 @@ This will:
 - Click the extension icon
 - Toggle "Enable Accessibility Mode"
 - Select a profile (Low Vision, Dyslexia, Cognitive, Custom)
+- Try the new Quick Actions: Reading Mode, Reading Ruler, Dark Mode
+- Use keyboard shortcuts: `Ctrl/Cmd + K` to toggle, `Ctrl/Cmd + R` for reading mode
 
 ## 📁 Project Structure
 
@@ -207,6 +250,27 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 This extension is privacy-first and processes everything locally. See [PRIVACY.md](PRIVACY.md) for complete privacy policy.
 
+## 📋 Changelog
+
+### Version 0.2.0 (Current)
+- Added Reading Mode for distraction-free reading
+- Added Reading Ruler visual guide
+- Added Dark Mode support
+- Added Color Blind filters (Protanopia, Deuteranopia, Tritanopia)
+- Added Keyboard Shortcuts (Ctrl/Cmd + K, Ctrl/Cmd + R)
+- Added Font Size Quick Adjust controls
+- Enhanced UI/UX with modern design
+- Improved performance and error handling
+- Expanded text simplification dictionary
+- Enhanced focus indicators
+
+### Version 0.1.0
+- Initial release
+- Basic accessibility profiles
+- Text simplification
+- ARIA enhancement
+- Cognitive load reduction
+
 ## 🤝 Contributing
 
 Contributions welcome! This is a production-grade extension built for real-world use.
@@ -215,5 +279,5 @@ Contributions welcome! This is a production-grade extension built for real-world
 
 **Built with ❤️ for universal web accessibility**
 
-Maintained by **Pranjal Pathak** · Open to contributions
+**Version 0.2.0** · Maintained by **Pranjal Pathak** · Open to contributions
 
