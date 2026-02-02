@@ -1,379 +1,233 @@
-# 🌍 Universal Web Accessibility Helper
+# Universal Web Accessibility Helper
 
-A privacy-first Chrome extension that provides one-click accessibility improvements for any website. Built with React, TypeScript, and Manifest V3.
+> One-click accessibility improvements for any website. Built for users with low vision, dyslexia, cognitive differences, and reading challenges.
 
-**Built for:** Users with low vision, dyslexia, cognitive differences, and reading challenges
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](package.json)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/)
 
-**Version:** 0.2.0  
-**Author:** Pranjal Pathak  
-**Role:** Software Engineer
+---
 
-## 🌱 Why this project exists
+## Quick Start
 
-Over 1 billion people globally experience some form of visual, cognitive, or neurological disability. Despite this, most websites are not built with accessibility in mind.
-
-This extension empowers users — not websites — to control how content is presented, making the web more readable, calm, and inclusive by default.
-
-## 🆕 What's New in v0.2.0
-
-### Major Features
-- **📖 Reading Mode**: Focus on content by hiding navigation and sidebars, with optimal reading width
-- **📏 Reading Ruler**: Visual line that follows your cursor to help track reading position (elegant purple design)
-- **🌙 Dark Mode**: Invert colors for better visibility in low-light conditions
-- **🎨 Color Blind Support**: Filters for Protanopia, Deuteranopia, and Tritanopia
-- **⌨️ Keyboard Shortcuts**: Quick access with `Ctrl/Cmd + K` to toggle, `Ctrl/Cmd + R` for reading mode
-- **🔤 Font Size Quick Adjust**: Real-time font size adjustment (0.5x - 3.0x) with visual controls
-- **🌍 Multi-Language Translation**: Translate entire pages using free Google Translate API (30+ languages, no API key required, works without page refresh)
-
-### UI/UX Improvements
-- Modern, polished design with smooth animations
-- Quick action buttons for common features
-- Enhanced visual hierarchy and better contrast
-- Keyboard shortcuts help panel
-- Improved focus indicators for keyboard navigation
-
-### Performance & Reliability
-- Better error handling and graceful degradation
-- Performance optimizations using `requestIdleCallback`
-- Throttled mutation observer for better performance
-- Enhanced text simplification with 60+ word pairs
-- Improved ARIA enhancement algorithms
-
-### Technical Enhancements
-- Better TypeScript types and error handling
-- Improved state management and synchronization
-- Persistent storage for all settings
-- Better browser compatibility
-
-## ✨ Features
-
-### Core Features
-- **Accessibility Profiles**: Pre-configured profiles for Low Vision, Dyslexia, Cognitive Load, and Custom settings
-- **Style Injection**: Dynamic font adjustments, contrast enhancement, and spacing improvements
-- **Text Simplification**: Rule-based text simplification (sentence shortening, word replacement, passive-voice reduction)
-- **ARIA Enhancement**: Automatic screen-reader hints and landmark improvements
-- **Cognitive Load Reduction**: Disables auto-play, reduces clutter, highlights key content
-- **Privacy-First**: All processing happens locally, no data sent to servers
-
-### New in v0.2.0
-- **Reading Mode**: Distraction-free reading experience
-- **Reading Ruler**: Visual reading line tracker (elegant purple design)
-- **Dark Mode**: Low-light viewing support
-- **Color Blind Filters**: Support for different types of color blindness
-- **Keyboard Shortcuts**: Quick access to common actions
-- **Font Size Quick Adjust**: Real-time font size control
-- **Enhanced Focus Indicators**: Better keyboard navigation visibility
-- **Multi-Language Translation**: Translate entire pages using free Google Translate API (30+ languages, no API key required, instant translation without page refresh)
-
-## 🏗️ Architecture
-
-```
-┌──────────────────────────┐
-│ Popup UI (React)         │
-│ - Toggle accessibility   │
-│ - Profile selection      │
-│ - Settings               │
-└──────────┬───────────────┘
-           │
-           ▼
-┌──────────────────────────┐
-│ Background Service Worker│
-│ - Manages state          │
-│ - Stores preferences     │
-│ - Message routing        │
-└──────────┬───────────────┘
-           │
-           ▼
-┌──────────────────────────┐
-│ Content Script           │
-│ - Injects styles         │
-│ - Modifies DOM           │
-│ - Simplifies text        │
-│ - Adds ARIA hints        │
-└──────────────────────────┘
+```bash
+git clone <repo-url>
+cd universal-accessibility-helper
+npm install
+npm run build:all
 ```
 
-## 🚀 Getting Started
+Then in Chrome: **chrome://extensions** → Enable **Developer mode** → **Load unpacked** → select the `dist/` folder.
+
+---
+
+## Table of Contents
+
+- [Why This Exists](#why-this-exists)
+- [Features](#features)
+- [Accessibility Profiles](#accessibility-profiles)
+- [Translation](#translation)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Privacy](#privacy)
+- [Changelog](#changelog)
+
+---
+
+## Why This Exists
+
+Over **1 billion people** globally experience some form of visual, cognitive, or neurological disability. Most websites are not built with accessibility in mind.
+
+This extension puts control in **your hands**: you choose how content is presented. No site changes required—read more comfortably on any page.
+
+---
+
+## Features
+
+### Core
+
+| Feature | Description |
+|--------|-------------|
+| **Profiles** | Low Vision, Dyslexia, Cognitive Load, or Custom—one click to apply |
+| **Font & contrast** | Dynamic font size (0.5×–3×), high contrast, spacing, and line height |
+| **Text simplification** | Shorter sentences, simpler words, less passive voice (60+ word pairs) |
+| **ARIA & cognitive** | Better screen-reader hints, less clutter, key content highlighted |
+| **Privacy-first** | Processing is local; no data sent to servers except for translation |
+
+### Quick Actions (v0.2.0)
+
+| Feature | Description |
+|--------|-------------|
+| **Reading Mode** | Hide nav and sidebars; focus on main content with optimal width |
+| **Reading Ruler** | Purple line that follows the cursor to track reading position |
+| **Dark Mode** | Inverted colors for low-light viewing |
+| **Color blind filters** | Protanopia, Deuteranopia, Tritanopia |
+| **Font size** | Real-time 0.5×–3× with +/- controls |
+| **Translation** | Translate the whole page to 30+ languages (no API key, no refresh) |
+
+### Technical
+
+- **Manifest V3** · React + TypeScript popup · Content + background scripts
+- **Production builds** · All `console.*` calls stripped for clean release
+- **Persistent settings** · Stored in Chrome sync/local storage
+
+---
+
+## Accessibility Profiles
+
+| Profile | Best for |
+|--------|----------|
+| **Low Vision** | Larger fonts (1.3×), very high contrast, 1.8 line height, no background images or animations |
+| **Dyslexia** | Dyslexia-friendly font, extra letter/word spacing, text simplification, high contrast |
+| **Cognitive Load** | Simplified text, fewer distractions, high contrast, key sentences highlighted |
+| **Custom** | Your own mix of toggles and values |
+
+---
+
+## Translation
+
+Translate any page to **30+ languages** using Google Translate’s public API. No API key, no account, no page refresh.
+
+- **How:** Enable accessibility → turn on **Translate Page** → pick a language.
+- **Change language:** Select another language; the page retranslates.
+- **Revert:** Turn **Translate Page** off; original text is restored.
+
+**Supported languages (examples):** English, Spanish, French, German, Italian, Portuguese, Russian, Japanese, Korean, Chinese, Arabic, Hindi, Dutch, Polish, Turkish, Swedish, Danish, Finnish, Norwegian, Ukrainian, Czech, Romanian, Hungarian, Greek, Hebrew, Thai, Vietnamese, and more.
+
+**Privacy:** Requests go to `translate.googleapis.com` (same as translate.google.com). Original text stays in your browser; nothing is stored or tracked.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl` / `Cmd` + `K` | Toggle accessibility on/off |
+| `Ctrl` / `Cmd` + `R` | Toggle Reading Mode |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Chrome browser
+- **Node.js** 18+
+- **Chrome** (or Chromium-based browser)
 
-### Installation
-
-1. **Clone and install dependencies:**
+### Install & Build
 
 ```bash
 cd universal-accessibility-helper
 npm install
-```
-
-2. **Build the extension:**
-
-```bash
 npm run build:all
 ```
 
-This will:
-- Build the React popup UI
-- Compile TypeScript content scripts
-- Compile background service worker
-- Compile utility modules
+This builds:
 
-3. **Load in Chrome:**
+- React popup UI
+- Content script (injector)
+- Background service worker
+- Shared utilities
 
-- Open Chrome and navigate to `chrome://extensions`
-- Enable **Developer mode** (toggle in top right)
-- Click **Load unpacked**
-- Select the `dist/` folder from this project
+### Load in Chrome
 
-4. **Test the extension:**
+1. Open **chrome://extensions**
+2. Turn on **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Choose the project’s **dist/** folder
 
-- Visit any website
-- Click the extension icon
-- Toggle "Enable Accessibility Mode"
-- Select a profile (Low Vision, Dyslexia, Cognitive, Custom)
-- Try the new Quick Actions: Reading Mode, Reading Ruler, Dark Mode, Font Size Adjust
-- Test Translation: Enable "Translate Page" and select a language (e.g., Spanish, Hindi)
-- Use keyboard shortcuts: `Ctrl/Cmd + K` to toggle, `Ctrl/Cmd + R` for reading mode
+### Try It
 
-## 📁 Project Structure
+1. Open any website.
+2. Click the extension icon.
+3. Turn on **Enable Accessibility Mode** and pick a profile.
+4. Use Quick Actions: Reading Mode, Ruler, Dark Mode, Font Size, Translation.
+5. Use **Ctrl/Cmd + K** to toggle, **Ctrl/Cmd + R** for Reading Mode.
+
+---
+
+## Project Structure
 
 ```
 universal-accessibility-helper/
-├── manifest.json              # Extension manifest
-├── popup/                     # React popup UI
+├── manifest.json           # Extension manifest (v3)
+├── popup/                  # React popup UI
 │   ├── src/
-│   │   ├── App.tsx           # Main popup component
-│   │   └── main.tsx          # Entry point
-│   ├── index.html
-│   └── package.json
-├── content/                   # Content scripts
-│   └── injector.ts           # Main injection logic
-├── background/                # Service worker
-│   └── serviceWorker.ts      # State management
-├── utils/                     # Shared utilities
-│   ├── profiles.ts           # Accessibility profiles
-│   ├── textSimplifier.ts     # Text simplification
-│   ├── ariaEnhancer.ts       # ARIA improvements
-│   ├── cognitiveReducer.ts   # Cognitive load reduction
-│   └── translator.ts         # Multi-language translation
-└── dist/                      # Build output (generated)
+│   │   ├── App.tsx
+│   │   ├── SettingsPanel.tsx
+│   │   ├── ViralityPrompt.tsx
+│   │   └── profiles.ts
+│   └── index.html
+├── content/
+│   └── injector.ts         # DOM injection, styles, translation trigger
+├── background/
+│   └── serviceWorker.ts   # State, storage, translation API proxy
+├── utils/
+│   ├── profiles.ts
+│   ├── textSimplifier.ts
+│   ├── ariaEnhancer.ts
+│   ├── cognitiveReducer.ts
+│   └── translator.ts      # Translation logic
+├── types/
+│   ├── chrome.d.ts
+│   └── translate-google-api.d.ts
+└── dist/                  # Build output (load this in Chrome)
 ```
-
-## 🎯 Accessibility Profiles
-
-### Low Vision
-- Larger fonts (1.3x)
-- Very high contrast
-- Increased line height (1.8)
-- Background images removed
-- Animations disabled
-
-### Dyslexia
-- Dyslexia-friendly font
-- Increased letter/word spacing
-- Text simplification enabled
-- High contrast
-- Animations disabled
-
-### Cognitive Load
-- Simplified text
-- Reduced distractions
-- High contrast
-- Background images removed
-- Key sentences highlighted
-
-### Custom
-- User-configurable settings
-- All features toggleable
-
-## 🌍 Language Translation
-
-The extension supports translating web pages to **30+ languages** using **free Google Translate API** - no API key required, no registration needed!
-
-### ✨ Key Features
-
-- ✅ **Free & Unlimited** - No API key needed, uses Google Translate's public endpoint
-- ✅ **30+ Languages** - Support for major world languages
-- ✅ **Auto-detect** - Automatically detects source language
-- ✅ **Instant Translation** - Works without page refresh, translates immediately
-- ✅ **Smart Element Detection** - Finds and translates all text elements on the page
-- ✅ **Batch Processing** - Efficiently translates multiple elements
-- ✅ **Privacy-first** - All translation requests go directly to Google Translate
-- ✅ **Fully Reversible** - Restore original text anytime with one click
-- ✅ **No usage limits** - Translate as much as you want
-
-### 🚀 How to Use
-
-1. **Enable Translation**:
-   - Open the extension popup
-   - Enable "Accessibility Mode" (if not already enabled)
-   - Toggle "Translate Page" ON in Quick Actions section
-   - Select your target language from the dropdown
-
-2. **That's it!** The page will be translated automatically without any refresh needed.
-
-3. **Change Language**:
-   - Simply select a different language from the dropdown
-   - The page will automatically retranslate
-
-4. **Disable Translation**:
-   - Toggle "Translate Page" OFF
-   - Original text is restored immediately
-
-### 🌐 Supported Languages
-
-**Major Languages:**
-English, Spanish (Español), French (Français), German (Deutsch), Italian (Italiano), Portuguese (Português), Russian (Русский), Japanese (日本語), Korean (한국어), Chinese (中文), Arabic (العربية), Hindi (हिन्दी)
-
-**Additional Languages:**
-Dutch (Nederlands), Polish (Polski), Turkish (Türkçe), Swedish (Svenska), Danish (Dansk), Finnish (Suomi), Norwegian (Norsk), Ukrainian (Українська), Czech (Čeština), Romanian (Română), Hungarian (Magyar), Greek (Ελληνικά), Hebrew (עברית), Thai (ไทย), Vietnamese (Tiếng Việt), and more.
-
-### 🔒 Privacy & Technical Details
-
-- ✅ **No API key required** - Uses Google Translate's free public endpoint (`translate.googleapis.com`)
-- ✅ **Direct API calls** - Same endpoint used by translate.google.com
-- ✅ **No registration** - No Google account or API setup needed
-- ✅ **No data stored** - Original text is preserved locally in browser
-- ✅ **Fully reversible** - Restore original text anytime
-- ✅ **No tracking** - Your translations are private
-- ✅ **Works offline** - Translation requests are made directly from your browser
-- ✅ **Rate limiting** - Built-in delays to respect API limits
-
-### 💡 How It Works
-
-The extension uses Google Translate's public API endpoint (the same one used by translate.google.com) to translate text. Each text element is translated individually to ensure accuracy, with small delays between requests to avoid rate limiting. The translation happens in real-time without requiring a page refresh.
-
-## 🛠️ Development
-
-### Production Builds
-
-✅ **All console.log statements are automatically removed** from production builds:
-- Content scripts: All `console.*` calls removed via esbuild `drop: ['console']`
-- Background worker: All `console.*` calls removed via esbuild `drop: ['console']`
-- Popup UI: All `console.*` calls removed via build minification
-
-This ensures a clean production build with no debug logs visible to end users.
-
-### Build Commands
-
-```bash
-# Build everything
-npm run build:all
-
-# Build popup only
-npm run build:popup
-
-# Build content script only
-npm run build:content
-
-# Build background worker only
-npm run build:background
-
-# Build utilities
-npm run build:utils
-```
-
-### Development Mode
-
-For popup development with hot reload:
-
-```bash
-npm run dev
-```
-
-Note: Content scripts require a full rebuild and extension reload.
-
-## 🎨 Accessible by Design
-
-The extension UI itself:
-- Meets WCAG AA contrast guidelines
-- Is keyboard navigable
-- Uses semantic HTML
-- Is screen-reader friendly
-
-Accessibility starts with the tool itself.
-
-## ⚠️ Limitations (By Design)
-
-- This extension does not replace screen readers.
-- It does not modify or persist changes to websites.
-- Accessibility improvements are best-effort and vary by site structure.
-- Some highly dynamic web apps may require manual toggling.
-
-These constraints are intentional to preserve safety, privacy, and reversibility.
-
-## 🔒 Privacy
-
-This extension:
-- ✅ Processes most features locally in your browser
-- ✅ Translation requests go directly to Google Translate (same as using translate.google.com)
-- ✅ Uses Chrome's local storage only for settings
-- ✅ No tracking or analytics
-- ✅ No data collection or user profiling
-- ✅ Open source and auditable
-- ✅ Original text is preserved locally and never sent anywhere
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🔒 Privacy Policy
-
-This extension is privacy-first and processes everything locally. See [PRIVACY.md](PRIVACY.md) for complete privacy policy.
-
-## 📋 Changelog
-
-### Version 0.2.0 (Current)
-- ✅ **Added Reading Mode** - Distraction-free reading experience
-- ✅ **Added Reading Ruler** - Visual line tracker (elegant purple design)
-- ✅ **Added Dark Mode** - Low-light viewing support
-- ✅ **Added Color Blind Filters** - Support for Protanopia, Deuteranopia, and Tritanopia
-- ✅ **Added Keyboard Shortcuts** - Quick access (Ctrl/Cmd + K to toggle, Ctrl/Cmd + R for reading mode)
-- ✅ **Added Font Size Quick Adjust** - Real-time font size control (0.5x - 3.0x)
-- ✅ **Added Multi-Language Translation** - Translate entire pages to 30+ languages using free Google Translate API (no API key required, works without page refresh)
-- ✅ **Enhanced UI/UX** - Modern, polished design with smooth animations
-- ✅ **Improved Performance** - Better error handling, throttled mutation observer, optimized rendering
-- ✅ **Expanded Text Simplification** - 60+ word pairs for better readability
-- ✅ **Enhanced Focus Indicators** - Better keyboard navigation visibility
-- ✅ **In-Extension Virality** - Rating and sharing prompts (appears after 3-4 uses)
-- ✅ **Better State Management** - Persistent storage for all settings
-
-### Version 0.1.0
-- Initial release
-- Basic accessibility profiles
-- Text simplification
-- ARIA enhancement
-- Cognitive load reduction
-
-## 🤝 Contributing
-
-Contributions welcome! This is a production-grade extension built for real-world use.
 
 ---
 
-**Built with ❤️ for universal web accessibility**
+## Development
 
-**Version 0.2.0** · Maintained by **Pranjal Pathak** · Open to contributions
+### Build commands
+
+```bash
+npm run build:all      # Full build (popup + scripts + copy assets)
+npm run build:popup    # Popup only
+npm run build:scripts  # Content + background (esbuild)
+npm run copy-assets    # manifest + icons → dist/
+npm run dev            # Popup dev server (Vite)
+```
+
+Content/background changes need a full rebuild and extension reload.
+
+### Production builds
+
+- **Content & background:** esbuild `drop: ['console']` removes all `console.*` calls.
+- **Popup:** Minification removes debug logs.
+- Result: no debug output in production.
 
 ---
 
-## 🎉 Recent Updates
+## Privacy
 
-### Translation Feature (v0.2.0)
-- ✅ Fully working multi-language translation
-- ✅ Uses direct Google Translate API (free, no API key)
-- ✅ Translates all page elements automatically
-- ✅ Works without page refresh
-- ✅ 30+ languages supported
-- ✅ Smart element detection and batch processing
-- ✅ Fully reversible - restore original text anytime
+- **Local by default** — Styles, profiles, and preferences are applied in your browser.
+- **Translation** — Only the text you translate is sent to Google’s public Translate endpoint (same as using translate.google.com). Original text is kept locally and can be restored anytime.
+- **No tracking** — No analytics, no profiling, no selling of data.
+- **Open source** — You can review the code. See [PRIVACY.md](PRIVACY.md) for the full policy.
 
-### Performance Improvements
-- ✅ Optimized translation batching (5 elements per batch)
-- ✅ Individual translation for reliability
-- ✅ Rate limiting with smart delays
-- ✅ Better error handling and fallbacks
+---
 
+## Changelog
+
+### 0.2.0
+
+- Reading Mode, Reading Ruler, Dark Mode, Color blind filters
+- Keyboard shortcuts (Ctrl/Cmd + K, Ctrl/Cmd + R)
+- Font size quick adjust (0.5×–3×)
+- **Page translation** — 30+ languages, no API key, no refresh
+- Improved UI/UX, performance, and state persistence
+- In-extension rating/share prompt after a few uses
+
+### 0.1.0
+
+- Initial release: profiles, text simplification, ARIA, cognitive load reduction
+
+---
+
+## License & Author
+
+**MIT** — see [LICENSE](LICENSE).
+
+**Pranjal Pathak** · Built for universal web accessibility.
