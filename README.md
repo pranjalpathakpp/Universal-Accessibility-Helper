@@ -31,6 +31,7 @@ Then in Chrome: **chrome://extensions** → Enable **Developer mode** → **Load
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Development](#development)
+- [Robustness & edge cases](#robustness--edge-cases)
 - [Privacy](#privacy)
 - [Changelog](#changelog)
 
@@ -69,9 +70,10 @@ This extension puts control in **your hands**: you choose how content is present
 
 ### Technical
 
-- **Manifest V3** · React + TypeScript popup · Content + background scripts
-- **Production builds** · All `console.*` calls stripped for clean release
-- **Persistent settings** · Stored in Chrome sync/local storage
+- **Manifest V3** (Chrome 88+) · React + TypeScript popup · Content + background scripts
+- **Shared types** · `types/messages.ts` for message payloads, storage keys, and validation
+- **Production builds** · All `console.*` stripped; no debug output in release
+- **Persistent settings** · Chrome sync (preferences) and local (usage count) storage
 
 ---
 
@@ -114,7 +116,7 @@ Translate any page to **30+ languages** using Google Translate’s public API. N
 ### Prerequisites
 
 - **Node.js** 18+
-- **Chrome** (or Chromium-based browser)
+- **Chrome** 88+ (or Chromium-based browser; Manifest V3)
 
 ### Install & Build
 
@@ -199,13 +201,43 @@ Content/background changes need a full rebuild and extension reload.
 - **Popup:** Minification removes debug logs.
 - Result: no debug output in production.
 
-### Production readiness
+### Robustness & edge cases
 
-- **Type safety:** Shared message and storage types in `types/messages.ts`; validated `profileId` and `targetLang` in background and content.
-- **Error handling:** All message handlers use safe `sendResponse` and `try/catch`; popup checks `chrome.runtime.lastError`.
-- **Security:** Translation only allows allowlisted language codes; font size and profile IDs validated before use.
-- **Performance:** Translation capped at 100 elements per page; mutation observer throttled; requestIdleCallback for non-critical work.
-- **Single source of truth:** Popup and utils profiles kept in sync (e.g. Cognitive profile).
+The extension is built to handle incomplete data, invalid input, and messaging edge cases so existing behavior is preserved and the UI stays stable.
+
+#### Validation & security
+
+| Area | What we validate | Fallback / behavior |
+|------|------------------|----------------------|
+| **Profile ID** | `profileId` must be one of `lowVision`, `dyslexia`, `cognitive`, `custom` | Invalid → `lowVision` |
+| **Font size** | Must be a number in 0.5–3.0 | Out of range → 1.0; missing → use stored or 1.0 |
+| **Translation language** | `targetLang` allowlisted (30+ codes); reject `auto` for API calls | Invalid/missing → no translation; original text unchanged |
+| **Message payloads** | All handlers treat `message` as `unknown` and cast safely | Avoids runtime errors from malformed or missing fields |
+
+#### Storage & toggle behavior
+
+- **Toggle:** When you toggle on/off, the extension **never overwrites your settings with empty data**. If the popup sends a toggle without profile/quick settings/font size, the background **falls back to current storage** and then writes that back. So profile, reading mode, ruler, dark mode, translation, and font size are preserved across toggles.
+- **Custom profile:** Custom settings are read from `chrome.storage.sync` when the content script applies the custom profile, so opening the popup on another device or after clearing in-memory state still applies your saved custom profile.
+- **Quick settings:** Content script only replaces `currentQuickSettings` when the message includes quick settings; otherwise it keeps the previous value so rapid toggles don’t clear options.
+
+#### Error handling & messaging
+
+- **Safe `sendResponse`:** Every message handler uses a small `safeSend()` wrapper so `sendResponse` is called at most once and never after the channel is closed. Handlers return `true` when the response is async so the message channel stays open.
+- **Popup:** Every `chrome.runtime.sendMessage` callback checks `chrome.runtime.lastError` and bails out without updating state if the extension context is invalid or the message fails.
+- **Content script:** Enable/disable/updateQuickSettings/updateFontSize/translate handlers are wrapped in try/catch; errors are returned in the response instead of throwing so the popup can stay in sync.
+- **Background:** Tabs that don’t inject the content script (e.g. chrome://, or not yet loaded) are skipped when broadcasting; `sendMessage` failures are caught so one bad tab doesn’t break the rest.
+
+#### Performance & rate limiting
+
+- **Translation:** At most **100 elements** per page are translated (`MAX_TRANSLATE_ELEMENTS`). Prevents UI freeze and reduces the chance of hitting rate limits on the translation endpoint. Batches of 5 with a short delay between batches.
+- **Mutation observer:** Throttled (debounce 500 ms, max 10 mutations/sec) so DOM-heavy pages don’t thrash. Non-critical work (simplify text, ARIA) runs in `requestIdleCallback` with a timeout.
+- **Profile switching:** Rapid profile changes are debounced (requestAnimationFrame + 300 ms timeout) so we don’t remove and re-apply enhancements in the same tick and break the page.
+
+#### Consistency & maintainability
+
+- **Single source of truth for profiles:** Popup and `utils/profiles.ts` use the same profile definitions (e.g. Cognitive profile: fontSize, lineHeight, simplifyText, etc.) so the UI description and applied behavior match.
+- **Storage keys:** All keys are constants in `types/messages.ts` (`STORAGE_KEYS`); background and content use these so typos don’t cause silent misreads.
+- **Language allowlist:** `VALID_TARGET_LANGS` in `types/messages.ts` is the single allowlist for translation API calls. A comment reminds to keep it in sync with `SUPPORTED_LANGUAGES` in `utils/translator.ts` when adding languages.
 
 ---
 
@@ -228,6 +260,15 @@ Content/background changes need a full rebuild and extension reload.
 - **Page translation** — 30+ languages, no API key, no refresh
 - Improved UI/UX, performance, and state persistence
 - In-extension rating/share prompt after a few uses
+
+#### Robustness & production hardening (post-0.2.0)
+
+- **Shared types** (`types/messages.ts`): Message and storage types; `VALID_PROFILE_IDS` and `VALID_TARGET_LANGS`; `isValidProfileId` / `isValidTargetLang`; `STORAGE_KEYS`.
+- **Background:** Toggle uses storage fallbacks so profile/quick settings/font size are never wiped by incomplete messages. All handlers validate input and use `safeSend`. Translation only accepts allowlisted language codes.
+- **Content script:** Validates `profileId` and `fontSizeMultiplier` on enable; uses `STORAGE_KEYS` for storage and mutation observer; message listener accepts `unknown` and casts safely; all handlers wrapped in try/catch with safe response.
+- **Translator:** Translation capped at 100 elements per page; language validation at API boundary; `setTargetLanguage` / `loadSettings` accept and persist any non-empty string; no verbose console logs.
+- **Popup:** Checks `chrome.runtime.lastError` on every `sendMessage` callback; typed responses; Cognitive profile aligned with `utils/profiles.ts`.
+- **Manifest:** `minimum_chrome_version: "88"` for MV3. Build strips all `console.*` in content and background.
 
 ### 0.1.0
 
