@@ -46,11 +46,11 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 let targetLanguage: string = 'en';
 
 export function setTargetLanguage(lang: string): void {
-  if (isValidTargetLang(lang)) {
-    targetLanguage = lang;
-    if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
-      chrome.storage.sync.set({ [STORAGE_KEYS.TARGET_LANGUAGE]: lang });
-    }
+  const trimmed = typeof lang === 'string' ? lang.trim() : '';
+  if (!trimmed) return;
+  targetLanguage = trimmed;
+  if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
+    chrome.storage.sync.set({ [STORAGE_KEYS.TARGET_LANGUAGE]: trimmed });
   }
 }
 
@@ -65,8 +65,9 @@ export async function loadSettings(): Promise<void> {
   
   return new Promise((resolve) => {
     chrome.storage.sync.get([STORAGE_KEYS.TARGET_LANGUAGE], (result: { [key: string]: string }) => {
-      if (result[STORAGE_KEYS.TARGET_LANGUAGE] && isValidTargetLang(result[STORAGE_KEYS.TARGET_LANGUAGE])) {
-        targetLanguage = result[STORAGE_KEYS.TARGET_LANGUAGE];
+      const stored = result[STORAGE_KEYS.TARGET_LANGUAGE];
+      if (typeof stored === 'string' && stored.trim()) {
+        targetLanguage = stored.trim();
       }
       resolve();
     });

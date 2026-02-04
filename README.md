@@ -199,6 +199,14 @@ Content/background changes need a full rebuild and extension reload.
 - **Popup:** Minification removes debug logs.
 - Result: no debug output in production.
 
+### Production readiness
+
+- **Type safety:** Shared message and storage types in `types/messages.ts`; validated `profileId` and `targetLang` in background and content.
+- **Error handling:** All message handlers use safe `sendResponse` and `try/catch`; popup checks `chrome.runtime.lastError`.
+- **Security:** Translation only allows allowlisted language codes; font size and profile IDs validated before use.
+- **Performance:** Translation capped at 100 elements per page; mutation observer throttled; requestIdleCallback for non-critical work.
+- **Single source of truth:** Popup and utils profiles kept in sync (e.g. Cognitive profile).
+
 ---
 
 ## Privacy

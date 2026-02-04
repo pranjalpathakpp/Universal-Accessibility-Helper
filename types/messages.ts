@@ -8,7 +8,7 @@ import type { ProfileId } from '../utils/profiles';
 /** Allowed profile IDs (validate in background) */
 export const VALID_PROFILE_IDS: ProfileId[] = ['lowVision', 'dyslexia', 'cognitive', 'custom'];
 
-/** Supported translation language codes (allowlist for security) */
+/** Supported translation language codes (allowlist for security). Keep in sync with SUPPORTED_LANGUAGES in utils/translator.ts when adding languages. */
 export const VALID_TARGET_LANGS = new Set([
   'auto', 'en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi',
   'nl', 'pl', 'tr', 'sv', 'da', 'fi', 'no', 'uk', 'cs', 'ro', 'hu', 'el', 'he', 'th', 'vi'

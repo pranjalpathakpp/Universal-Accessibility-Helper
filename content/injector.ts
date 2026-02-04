@@ -738,7 +738,8 @@ function updateFontSize(multiplier: number): void {
 }
 
 
-chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: unknown }, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  const msg = (message || {}) as { action: string; [key: string]: unknown };
   const safeSend = (response: unknown) => {
     try {
       sendResponse(response);
@@ -747,13 +748,13 @@ chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: 
     }
   };
 
-  if (message.action === 'enable') {
-    const profileId = isValidProfileId((message.profileId as string) || '') ? (message.profileId as ProfileId) : 'lowVision';
-    const fontSize = typeof message.fontSizeMultiplier === 'number' && message.fontSizeMultiplier >= 0.5 && message.fontSizeMultiplier <= 3
-      ? message.fontSizeMultiplier
+  if (msg.action === 'enable') {
+    const profileId = isValidProfileId((msg.profileId as string) || '') ? (msg.profileId as ProfileId) : 'lowVision';
+    const fontSize = typeof msg.fontSizeMultiplier === 'number' && msg.fontSizeMultiplier >= 0.5 && msg.fontSizeMultiplier <= 3
+      ? msg.fontSizeMultiplier
       : undefined;
     try {
-      applyAccessibility(profileId, message.customSettings as Partial<AccessibilityProfile> | undefined, message.quickSettings as QuickSettings | undefined, fontSize);
+      applyAccessibility(profileId, msg.customSettings as Partial<AccessibilityProfile> | undefined, msg.quickSettings as QuickSettings | undefined, fontSize);
       safeSend({ success: true });
     } catch (err) {
       safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
@@ -761,7 +762,7 @@ chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: 
     return true;
   }
 
-  if (message.action === 'disable') {
+  if (msg.action === 'disable') {
     try {
       removeEnhancements();
       safeSend({ success: true });
@@ -771,14 +772,14 @@ chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: 
     return true;
   }
 
-  if (message.action === 'getStatus') {
+  if (msg.action === 'getStatus') {
     safeSend({ enabled: document.documentElement.classList.contains('a11y-enabled') });
     return true;
   }
 
-  if (message.action === 'updateQuickSettings') {
+  if (msg.action === 'updateQuickSettings') {
     try {
-      updateQuickSettings((message.quickSettings as QuickSettings) || {});
+      updateQuickSettings((msg.quickSettings as QuickSettings) || {});
       safeSend({ success: true });
     } catch (err) {
       safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
@@ -786,9 +787,9 @@ chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: 
     return true;
   }
 
-  if (message.action === 'translate') {
-    const text = typeof message.text === 'string' ? message.text : '';
-    const targetLang = typeof message.targetLang === 'string' ? message.targetLang : '';
+  if (msg.action === 'translate') {
+    const text = typeof msg.text === 'string' ? msg.text : '';
+    const targetLang = typeof msg.targetLang === 'string' ? msg.targetLang : '';
     if (!text || !targetLang || targetLang === 'auto' || !isValidTargetLang(targetLang)) {
       safeSend({ translatedText: text });
       return true;
@@ -803,8 +804,8 @@ chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: 
     return true;
   }
 
-  if (message.action === 'updateFontSize') {
-    const mult = message.fontSizeMultiplier;
+  if (msg.action === 'updateFontSize') {
+    const mult = msg.fontSizeMultiplier;
     if (typeof mult === 'number' && mult >= 0.5 && mult <= 3) {
       try {
         updateFontSize(mult);

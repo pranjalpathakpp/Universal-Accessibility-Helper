@@ -4,7 +4,6 @@ import {
   isValidProfileId,
   isValidTargetLang,
   type QuickSettings,
-  type ExtensionMessage,
 } from '../types/messages';
 
 const DEFAULT_PROFILE: ProfileId = 'lowVision';
@@ -45,8 +44,8 @@ function sendToAllTabs(
   });
 }
 
-chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
-  const msg = message as { action: string; [key: string]: unknown };
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  const msg = (message || {}) as { action: string; [key: string]: unknown };
 
   const safeSend = (response: unknown) => {
     try {
@@ -58,21 +57,22 @@ chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendRe
 
   try {
     if (msg.action === 'toggle') {
-      const profileId = isValidProfileId(msg.profileId as string)
-        ? (msg.profileId as ProfileId)
-        : DEFAULT_PROFILE;
-      const quickSettings = (msg.quickSettings as QuickSettings) || {};
-      const fontSizeMultiplier =
-        typeof msg.fontSizeMultiplier === 'number' &&
-        msg.fontSizeMultiplier >= 0.5 &&
-        msg.fontSizeMultiplier <= 3
-          ? msg.fontSizeMultiplier
-          : 1.0;
-
       chrome.storage.sync.get(
         [STORAGE_KEYS.ENABLED, STORAGE_KEYS.PROFILE_ID, STORAGE_KEYS.QUICK_SETTINGS, STORAGE_KEYS.FONT_SIZE_MULTIPLIER],
         (result: { [key: string]: unknown }) => {
           const newEnabled = !result[STORAGE_KEYS.ENABLED];
+          // Prefer message values; fall back to storage so we never wipe existing settings
+          const profileId = isValidProfileId(msg.profileId as string)
+            ? (msg.profileId as ProfileId)
+            : (isValidProfileId(result[STORAGE_KEYS.PROFILE_ID] as string) ? (result[STORAGE_KEYS.PROFILE_ID] as ProfileId) : DEFAULT_PROFILE);
+          const quickSettings =
+            msg.quickSettings != null && typeof msg.quickSettings === 'object'
+              ? (msg.quickSettings as QuickSettings)
+              : ((result[STORAGE_KEYS.QUICK_SETTINGS] as QuickSettings) || {});
+          const rawFont = typeof msg.fontSizeMultiplier === 'number' ? msg.fontSizeMultiplier : result[STORAGE_KEYS.FONT_SIZE_MULTIPLIER];
+          const fontSizeMultiplier =
+            typeof rawFont === 'number' && rawFont >= 0.5 && rawFont <= 3 ? rawFont : 1.0;
+
           chrome.storage.sync.set(
             {
               [STORAGE_KEYS.ENABLED]: newEnabled,
