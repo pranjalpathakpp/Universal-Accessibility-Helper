@@ -172,6 +172,7 @@ universal-accessibility-helper/
 │   └── translator.ts      # Translation logic
 ├── types/
 │   ├── chrome.d.ts
+│   ├── messages.ts        # Message & storage types, validation
 │   └── translate-google-api.d.ts
 └── dist/                  # Build output (load this in Chrome)
 ```

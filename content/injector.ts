@@ -3,6 +3,7 @@ import { simplifyPageText } from '../utils/textSimplifier';
 import { enhancePageAria, removeAriaEnhancements } from '../utils/ariaEnhancer';
 import { applyCognitiveReduction, removeCognitiveReduction } from '../utils/cognitiveReducer';
 import { translatePage, restoreOriginalText, setTargetLanguage, loadSettings as loadTranslateSettings } from '../utils/translator';
+import { STORAGE_KEYS, isValidProfileId, isValidTargetLang } from '../types/messages';
 
 
 function injectStyles(): void {
@@ -311,8 +312,6 @@ function injectStyles(): void {
 
 
 function removeEnhancements(): void {
-  console.log('[A11y] Removing all enhancements');
-  
   // Clean up reading ruler handlers first
   if (rulerMouseMoveHandler) {
     document.removeEventListener('mousemove', rulerMouseMoveHandler);
@@ -398,8 +397,6 @@ function removeEnhancements(): void {
     }
     el.remove();
   });
-  
-  console.log('[A11y] All enhancements removed');
 }
 
 interface QuickSettings {
@@ -424,8 +421,6 @@ let rulerScrollHandler: (() => void) | null = null;
 let lastMouseY = 0;
 
 function applyAccessibility(profileId: ProfileId, customSettings?: Partial<AccessibilityProfile>, quickSettings?: QuickSettings, fontSizeMultiplier?: number): void {
-  console.log('[A11y] Applying profile:', profileId);
-  
   // Store the latest request
   pendingProfileSwitch = { profileId, customSettings, quickSettings, fontSizeMultiplier };
   
@@ -451,13 +446,10 @@ function applyAccessibility(profileId: ProfileId, customSettings?: Partial<Acces
   isSwitchingProfile = true;
   
   if (document.documentElement.classList.contains('a11y-enabled')) {
-    console.log('[A11y] Removing old enhancements before applying new profile');
-    
-    // Remove enhancements synchronously but carefully
     try {
       removeEnhancements();
-    } catch (error: any) {
-      console.error('[A11y] Error removing enhancements:', error);
+    } catch {
+      // Continue with re-apply
     }
     
     // Wait for DOM to stabilize before applying new profile
@@ -479,8 +471,8 @@ function applyAccessibility(profileId: ProfileId, customSettings?: Partial<Acces
           profileSwitchTimeout = window.setTimeout(() => {
             try {
               applyProfileInternal(latest.profileId, latest.customSettings);
-            } catch (error: any) {
-              console.error('[A11y] Error applying profile:', error);
+            } catch {
+              // Already logged or non-fatal
             } finally {
               isSwitchingProfile = false;
               profileSwitchTimeout = null;
@@ -499,8 +491,8 @@ function applyAccessibility(profileId: ProfileId, customSettings?: Partial<Acces
           profileSwitchTimeout = window.setTimeout(() => {
             try {
               applyProfileInternal(profileId, customSettings);
-            } catch (error: any) {
-              console.error('[A11y] Error applying profile:', error);
+            } catch {
+              // Already logged or non-fatal
             } finally {
               isSwitchingProfile = false;
               profileSwitchTimeout = null;
@@ -513,8 +505,8 @@ function applyAccessibility(profileId: ProfileId, customSettings?: Partial<Acces
   } else {
     try {
       applyProfileInternal(profileId, customSettings);
-    } catch (error: any) {
-      console.error('[A11y] Error applying profile:', error);
+    } catch {
+      // Non-fatal
     } finally {
       isSwitchingProfile = false;
       pendingProfileSwitch = null;
@@ -527,14 +519,11 @@ function applyProfileInternal(profileId: ProfileId, customSettings?: Partial<Acc
 
   if (profileId === 'custom' && customSettings) {
     profile = { ...profile, ...customSettings };
-    console.log('[A11y] Using custom settings:', customSettings);
     applyProfileWithSettings(profile, profileId);
   } else if (profileId === 'custom') {
-    
-    chrome.storage.sync.get(['customSettings'], (result) => {
-      if (result.customSettings) {
-        const mergedProfile = { ...profile, ...result.customSettings };
-        console.log('[A11y] Loaded custom settings from storage');
+    chrome.storage.sync.get([STORAGE_KEYS.CUSTOM_SETTINGS], (result: { [key: string]: unknown }) => {
+      if (result[STORAGE_KEYS.CUSTOM_SETTINGS]) {
+        const mergedProfile = { ...profile, ...(result[STORAGE_KEYS.CUSTOM_SETTINGS] as object) };
         applyProfileWithSettings(mergedProfile, profileId);
       } else {
         applyProfileWithSettings(profile, profileId);
@@ -547,18 +536,11 @@ function applyProfileInternal(profileId: ProfileId, customSettings?: Partial<Acc
 
 function applyProfileWithSettings(profile: AccessibilityProfile, profileId: ProfileId): void {
   try {
-    console.log('[A11y] Profile settings:', profile);
-    
     injectStyles();
-    console.log('[A11y] Styles injected');
-    
-    // Apply font size multiplier
     const adjustedFontSize = profile.fontSize * currentFontSizeMultiplier;
     const adjustedProfile = { ...profile, fontSize: adjustedFontSize };
     
     applyProfile(adjustedProfile);
-    console.log('[A11y] Profile applied to DOM');
-    
     document.documentElement.setAttribute('data-a11y-profile', profileId);
     
     // Apply quick settings
@@ -579,36 +561,22 @@ function applyProfileWithSettings(profile: AccessibilityProfile, profileId: Prof
     }
     
     // Apply translation if enabled
-    if (currentQuickSettings.translateEnabled && currentQuickSettings.targetLanguage && currentQuickSettings.targetLanguage !== 'auto') {
+    if (currentQuickSettings.translateEnabled && currentQuickSettings.targetLanguage && isValidTargetLang(currentQuickSettings.targetLanguage) && currentQuickSettings.targetLanguage !== 'auto') {
       loadTranslateSettings().then(() => {
         setTargetLanguage(currentQuickSettings.targetLanguage || 'en');
         setTimeout(() => {
-          translatePage(currentQuickSettings.targetLanguage || 'en').catch((error: any) => {
-            console.error('[A11y] Error translating page:', error);
-          });
-        }, 1000); // Delay to let other features apply first
+          translatePage(currentQuickSettings.targetLanguage || 'en').catch(() => {});
+        }, 1000);
       });
     }
-    
-    // Use requestIdleCallback for non-critical operations
+
     const applyNonCriticalFeatures = () => {
       try {
-        if (profile.simplifyText) {
-          console.log('[A11y] Simplifying text');
-          simplifyPageText();
-        }
-        
-        if (profile.enhanceAria) {
-          console.log('[A11y] Enhancing ARIA');
-          enhancePageAria();
-        }
-        
-        if (profile.reduceCognitiveLoad) {
-          console.log('[A11y] Reducing cognitive load');
-          applyCognitiveReduction();
-        }
-      } catch (error: any) {
-        console.error('[A11y] Error applying non-critical features:', error);
+        if (profile.simplifyText) simplifyPageText();
+        if (profile.enhanceAria) enhancePageAria();
+        if (profile.reduceCognitiveLoad) applyCognitiveReduction();
+      } catch {
+        // Non-critical
       }
     };
     
@@ -617,11 +585,8 @@ function applyProfileWithSettings(profile: AccessibilityProfile, profileId: Prof
     } else {
       setTimeout(applyNonCriticalFeatures, 100);
     }
-    
-    console.log('[A11y] Accessibility enabled successfully!');
-  } catch (error: any) {
-    console.error('[A11y] Error applying profile:', error);
-    throw error;
+  } catch (err) {
+    throw err;
   }
 }
 
@@ -734,50 +699,25 @@ function updateQuickSettings(quickSettings: QuickSettings): void {
     }
   }
 
-  // Update translation (works without page refresh)
   if (quickSettings.translateEnabled !== undefined || quickSettings.targetLanguage !== undefined) {
-    console.log('[A11y] Translation settings changed:', {
-      enabled: quickSettings.translateEnabled,
-      targetLang: quickSettings.targetLanguage
-    });
-    
-    if (quickSettings.translateEnabled && quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto') {
-      console.log('[A11y] Translation enabled, target language:', quickSettings.targetLanguage);
-      
-      // If already translated, restore first, then retranslate
+    if (quickSettings.translateEnabled && quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto' && isValidTargetLang(quickSettings.targetLanguage)) {
       if (document.querySelectorAll('[data-a11y-translated="true"]').length > 0) {
-        console.log('[A11y] Restoring original text before retranslating...');
         restoreOriginalText();
       }
-      
       loadTranslateSettings().then(() => {
         setTargetLanguage(quickSettings.targetLanguage || 'en');
-        // Start translation immediately (no need to wait for DOM, page is already loaded)
-        const startTranslation = () => {
-          console.log('[A11y] Starting page translation (no refresh needed)...');
-          translatePage(quickSettings.targetLanguage || 'en').catch((error: any) => {
-            console.error('[A11y] Error translating page:', error);
-          });
-        };
-        
-        // Small delay to ensure DOM is stable
-        setTimeout(startTranslation, 300);
-      }).catch((error: any) => {
-        console.error('[A11y] Error loading translate settings:', error);
-      });
+        setTimeout(() => {
+          translatePage(quickSettings.targetLanguage || 'en').catch(() => {});
+        }, 300);
+      }).catch(() => {});
     } else if (quickSettings.translateEnabled === false) {
-      console.log('[A11y] Translation disabled, restoring original text');
       restoreOriginalText();
-    } else if (quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto' && quickSettings.translateEnabled) {
-      // Language changed, retranslate
-      console.log('[A11y] Target language changed, retranslating...');
+    } else if (quickSettings.targetLanguage && quickSettings.targetLanguage !== 'auto' && quickSettings.translateEnabled && isValidTargetLang(quickSettings.targetLanguage)) {
       restoreOriginalText();
       loadTranslateSettings().then(() => {
         setTargetLanguage(quickSettings.targetLanguage || 'en');
         setTimeout(() => {
-          translatePage(quickSettings.targetLanguage || 'en').catch((error: any) => {
-            console.error('[A11y] Error retranslating page:', error);
-          });
+          translatePage(quickSettings.targetLanguage || 'en').catch(() => {});
         }, 300);
       });
     }
@@ -798,130 +738,116 @@ function updateFontSize(multiplier: number): void {
 }
 
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (chrome.runtime.lastError) {
-    console.log('[A11y] Extension context invalidated');
-    return false;
-  }
-  
-  console.log('[A11y] Received message:', message);
-  
-  if (message.action === 'enable') {
-    console.log('[A11y] Enabling accessibility with profile:', message.profileId);
-    
+chrome.runtime.onMessage.addListener((message: { action: string; [key: string]: unknown }, _sender, sendResponse) => {
+  const safeSend = (response: unknown) => {
     try {
-      applyAccessibility(
-        message.profileId || 'lowVision', 
-        message.customSettings,
-        message.quickSettings,
-        message.fontSizeMultiplier
-      );
-      sendResponse({ success: true });
-    } catch (error: any) {
-      console.error('[A11y] Error applying accessibility:', error);
-      sendResponse({ success: false, error: error.message });
+      sendResponse(response);
+    } catch {
+      // Channel may be closed
     }
-  } else if (message.action === 'disable') {
-    console.log('[A11y] Disabling accessibility');
+  };
+
+  if (message.action === 'enable') {
+    const profileId = isValidProfileId((message.profileId as string) || '') ? (message.profileId as ProfileId) : 'lowVision';
+    const fontSize = typeof message.fontSizeMultiplier === 'number' && message.fontSizeMultiplier >= 0.5 && message.fontSizeMultiplier <= 3
+      ? message.fontSizeMultiplier
+      : undefined;
+    try {
+      applyAccessibility(profileId, message.customSettings as Partial<AccessibilityProfile> | undefined, message.quickSettings as QuickSettings | undefined, fontSize);
+      safeSend({ success: true });
+    } catch (err) {
+      safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+    return true;
+  }
+
+  if (message.action === 'disable') {
     try {
       removeEnhancements();
-      sendResponse({ success: true });
-    } catch (error: any) {
-      console.error('[A11y] Error removing accessibility:', error);
-      sendResponse({ success: false, error: error.message });
+      safeSend({ success: true });
+    } catch (err) {
+      safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
     }
-  } else if (message.action === 'getStatus') {
-    const isEnabled = document.documentElement.classList.contains('a11y-enabled');
-    sendResponse({ enabled: isEnabled });
-  } else if (message.action === 'updateQuickSettings') {
-    try {
-      console.log('[A11y] Updating quick settings:', message.quickSettings);
-      updateQuickSettings(message.quickSettings);
-      sendResponse({ success: true });
-    } catch (error: any) {
-      console.error('[A11y] Error updating quick settings:', error);
-      sendResponse({ success: false, error: error.message });
-    }
-  } else if (message.action === 'translate') {
-    // This is a direct translation request from content script
-    try {
-      const { text, targetLang } = message;
-      console.log('[A11y] Direct translate request:', { textLength: text?.length, targetLang });
-      
-      if (!text || !targetLang || targetLang === 'auto') {
-        sendResponse({ translatedText: text || '' });
-        return true;
-      }
+    return true;
+  }
 
-      // Forward to background worker
-      chrome.runtime.sendMessage({
-        action: 'translate',
-        text: text,
-        targetLang: targetLang
-      }, (response: any) => {
-        if (chrome.runtime.lastError) {
-          console.error('[A11y] Translation runtime error:', chrome.runtime.lastError);
-          sendResponse({ translatedText: text });
-        } else if (response && response.translatedText) {
-          sendResponse({ translatedText: response.translatedText });
-        } else {
-          sendResponse({ translatedText: text });
-        }
-      });
-      
-      return true; // Keep channel open for async response
-    } catch (error: any) {
-      console.error('[A11y] Error in translate handler:', error);
-      sendResponse({ translatedText: message.text || '' });
+  if (message.action === 'getStatus') {
+    safeSend({ enabled: document.documentElement.classList.contains('a11y-enabled') });
+    return true;
+  }
+
+  if (message.action === 'updateQuickSettings') {
+    try {
+      updateQuickSettings((message.quickSettings as QuickSettings) || {});
+      safeSend({ success: true });
+    } catch (err) {
+      safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+    }
+    return true;
+  }
+
+  if (message.action === 'translate') {
+    const text = typeof message.text === 'string' ? message.text : '';
+    const targetLang = typeof message.targetLang === 'string' ? message.targetLang : '';
+    if (!text || !targetLang || targetLang === 'auto' || !isValidTargetLang(targetLang)) {
+      safeSend({ translatedText: text });
       return true;
     }
-  } else if (message.action === 'updateFontSize') {
-    try {
-      updateFontSize(message.fontSizeMultiplier);
-      sendResponse({ success: true });
-    } catch (error: any) {
-      console.error('[A11y] Error updating font size:', error);
-      sendResponse({ success: false, error: error.message });
-    }
+    chrome.runtime.sendMessage(
+      { action: 'translate', text, targetLang },
+      (response: { translatedText?: string }) => {
+        if (chrome.runtime.lastError) safeSend({ translatedText: text });
+        else safeSend({ translatedText: response?.translatedText ?? text });
+      }
+    );
+    return true;
   }
-  
-  return true; 
+
+  if (message.action === 'updateFontSize') {
+    const mult = message.fontSizeMultiplier;
+    if (typeof mult === 'number' && mult >= 0.5 && mult <= 3) {
+      try {
+        updateFontSize(mult);
+        safeSend({ success: true });
+      } catch (err) {
+        safeSend({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
+      }
+    } else {
+      safeSend({ success: true });
+    }
+    return true;
+  }
+
+  return true;
 });
-
-
-console.log('[A11y] Content script loaded and ready');
 
 
 function checkAndApplyOnLoad() {
   try {
-    chrome.storage.sync.get(['enabled', 'profileId', 'quickSettings', 'fontSizeMultiplier'], (result) => {
-      if (chrome.runtime.lastError) {
-        console.log('[A11y] Extension context invalidated, skipping auto-apply');
-        return;
-      }
-      
-      if (result.enabled && result.profileId) {
+    chrome.storage.sync.get(
+      [STORAGE_KEYS.ENABLED, STORAGE_KEYS.PROFILE_ID, STORAGE_KEYS.QUICK_SETTINGS, STORAGE_KEYS.FONT_SIZE_MULTIPLIER],
+      (result: { [key: string]: unknown }) => {
+        if (chrome.runtime.lastError) return;
+        if (!result[STORAGE_KEYS.ENABLED] || !result[STORAGE_KEYS.PROFILE_ID]) return;
+        const profileId = isValidProfileId(String(result[STORAGE_KEYS.PROFILE_ID]))
+          ? (result[STORAGE_KEYS.PROFILE_ID] as ProfileId)
+          : 'lowVision';
+        const quickSettings = (result[STORAGE_KEYS.QUICK_SETTINGS] as QuickSettings) || {};
+        const fontSizeMultiplier = typeof result[STORAGE_KEYS.FONT_SIZE_MULTIPLIER] === 'number'
+          ? result[STORAGE_KEYS.FONT_SIZE_MULTIPLIER] as number
+          : undefined;
+        const apply = () => {
+          applyAccessibility(profileId, undefined, quickSettings, fontSizeMultiplier);
+        };
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => {
-            applyAccessibility(
-              result.profileId,
-              undefined,
-              result.quickSettings,
-              result.fontSizeMultiplier
-            );
-          });
+          document.addEventListener('DOMContentLoaded', apply);
         } else {
-          applyAccessibility(
-            result.profileId,
-            undefined,
-            result.quickSettings,
-            result.fontSizeMultiplier
-          );
+          apply();
         }
       }
-    });
-  } catch (error: any) {
-    console.log('[A11y] Could not check storage:', error.message);
+    );
+  } catch {
+    // Storage or context unavailable
   }
 }
 
@@ -931,12 +857,11 @@ checkAndApplyOnLoad();
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
-    
     setTimeout(() => {
       try {
         checkAndApplyOnLoad();
-      } catch (error) {
-        
+      } catch {
+        // Ignore
       }
     }, 100);
   }
@@ -968,25 +893,23 @@ const observer = new MutationObserver((mutations) => {
     mutationTimeout = null;
     isProcessingMutation = true;
     
-    try {
-      chrome.storage.sync.get(['enabled', 'profileId'], (result) => {
-        if (chrome.runtime.lastError) {
-          isProcessingMutation = false;
-          return;
-        }
-        
-        if (!result.enabled || !result.profileId) {
-          isProcessingMutation = false;
-          return;
-        }
-        
-        if (!document.documentElement.classList.contains('a11y-enabled')) {
-          isProcessingMutation = false;
-          return;
-        }
-        
         try {
-          const profile = getProfile(result.profileId);
+          chrome.storage.sync.get([STORAGE_KEYS.ENABLED, STORAGE_KEYS.PROFILE_ID], (result: { [key: string]: unknown }) => {
+            if (chrome.runtime.lastError) {
+              isProcessingMutation = false;
+              return;
+            }
+            if (!result[STORAGE_KEYS.ENABLED] || !result[STORAGE_KEYS.PROFILE_ID]) {
+              isProcessingMutation = false;
+              return;
+            }
+            if (!document.documentElement.classList.contains('a11y-enabled')) {
+              isProcessingMutation = false;
+              return;
+            }
+            const profileId = isValidProfileId(String(result[STORAGE_KEYS.PROFILE_ID])) ? result[STORAGE_KEYS.PROFILE_ID] : 'lowVision';
+            try {
+              const profile = getProfile(profileId as ProfileId);
           
           // Use requestIdleCallback for better performance
           const processMutations = () => {
@@ -997,8 +920,8 @@ const observer = new MutationObserver((mutations) => {
               if (profile.simplifyText) {
                 simplifyPageText();
               }
-            } catch (error: any) {
-              console.error('[A11y] Error processing mutations:', error);
+            } catch {
+              // Non-critical
             } finally {
               isProcessingMutation = false;
             }
@@ -1009,16 +932,14 @@ const observer = new MutationObserver((mutations) => {
           } else {
             setTimeout(processMutations, 100);
           }
-        } catch (error: any) {
-          console.error('[A11y] Error getting profile:', error);
+        } catch {
           isProcessingMutation = false;
         }
       });
-    } catch (error: any) {
-      console.error('[A11y] Error in mutation observer:', error);
+    } catch {
       isProcessingMutation = false;
     }
-  }, 500); // Increased debounce time for better performance
+  }, 500);
 });
 
 

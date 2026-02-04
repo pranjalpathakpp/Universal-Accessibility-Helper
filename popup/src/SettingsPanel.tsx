@@ -14,8 +14,8 @@ export default function SettingsPanel({ isOpen, onClose, onSave, currentSettings
   const [settings, setSettings] = useState<Partial<AccessibilityProfile>>(currentSettings);
 
   useEffect(() => {
-    chrome.storage.sync.get(['customSettings'], (result: { [key: string]: any }) => {
-      if (result.customSettings) {
+    chrome.storage.sync.get(['customSettings'], (result: { customSettings?: Partial<AccessibilityProfile> }) => {
+      if (result.customSettings && typeof result.customSettings === 'object') {
         setSettings({ ...currentSettings, ...result.customSettings });
       } else {
         setSettings(currentSettings);

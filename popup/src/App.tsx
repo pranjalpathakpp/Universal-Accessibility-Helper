@@ -53,38 +53,39 @@ function App() {
   const [usageCount, setUsageCount] = useState(0);
 
   useEffect(() => {
-    chrome.runtime.sendMessage({ action: 'getState' }, (response) => {
+    chrome.runtime.sendMessage({ action: 'getState' }, (response: { enabled?: boolean; profileId?: ProfileId }) => {
+      if (chrome.runtime.lastError) {
+        setLoading(false);
+        return;
+      }
       if (response) {
         setState({
-          enabled: response.enabled || false,
+          enabled: Boolean(response.enabled),
           profileId: response.profileId || 'lowVision'
         });
       }
       setLoading(false);
     });
 
-    // Load quick settings
-    chrome.storage.sync.get(['quickSettings'], (result: { [key: string]: any }) => {
+    chrome.storage.sync.get(['quickSettings'], (result: { quickSettings?: QuickSettings }) => {
       if (result.quickSettings) {
-        setQuickSettings(prev => ({ 
-          ...prev, 
+        setQuickSettings(prev => ({
+          ...prev,
           ...result.quickSettings,
-          translateEnabled: result.quickSettings.translateEnabled || false,
-          targetLanguage: result.quickSettings.targetLanguage || 'en'
+          translateEnabled: result.quickSettings?.translateEnabled ?? false,
+          targetLanguage: result.quickSettings?.targetLanguage || 'en'
         }));
       }
     });
 
-    // Load font size multiplier
-    chrome.storage.sync.get(['fontSizeMultiplier'], (result: { [key: string]: any }) => {
-      if (result.fontSizeMultiplier) {
+    chrome.storage.sync.get(['fontSizeMultiplier'], (result: { fontSizeMultiplier?: number }) => {
+      if (typeof result.fontSizeMultiplier === 'number' && result.fontSizeMultiplier >= 0.5 && result.fontSizeMultiplier <= 3) {
         setFontSizeMultiplier(result.fontSizeMultiplier);
       }
     });
 
-    // Load and track usage count
-    chrome.storage.local.get(['usageCount'], (result: { [key: string]: any }) => {
-      const count = result.usageCount || 0;
+    chrome.storage.local.get(['usageCount'], (result: { usageCount?: number }) => {
+      const count = typeof result.usageCount === 'number' ? result.usageCount : 0;
       setUsageCount(count);
     });
   }, []);
@@ -94,22 +95,19 @@ function App() {
     chrome.runtime.sendMessage({
       action: 'toggle',
       profileId: state.profileId,
-      quickSettings: quickSettings,
-      fontSizeMultiplier: fontSizeMultiplier
-    }, (response) => {
+      quickSettings,
+      fontSizeMultiplier
+    }, (response: { enabled?: boolean }) => {
+      if (chrome.runtime.lastError) {
+        setLoading(false);
+        return;
+      }
       if (response) {
-        setState(prev => ({
-          ...prev,
-          enabled: response.enabled
-        }));
-        
-        // Track usage when enabled
+        setState(prev => ({ ...prev, enabled: Boolean(response.enabled) }));
         if (response.enabled) {
-          chrome.storage.local.get(['usageCount'], (result: { [key: string]: any }) => {
-            const newCount = (result.usageCount || 0) + 1;
-            chrome.storage.local.set({ usageCount: newCount }, () => {
-              setUsageCount(newCount);
-            });
+          chrome.storage.local.get(['usageCount'], (result: { usageCount?: number }) => {
+            const newCount = (typeof result.usageCount === 'number' ? result.usageCount : 0) + 1;
+            chrome.storage.local.set({ usageCount: newCount }, () => setUsageCount(newCount));
           });
         }
       }
@@ -122,17 +120,14 @@ function App() {
       setShowSettings(true);
       return;
     }
-    
     setLoading(true);
-    chrome.runtime.sendMessage({
-      action: 'setProfile',
-      profileId: profileId
-    }, (response) => {
-      if (response) {
-        setState(prev => ({
-          ...prev,
-          profileId: profileId
-        }));
+    chrome.runtime.sendMessage({ action: 'setProfile', profileId }, (response: { success?: boolean }) => {
+      if (chrome.runtime.lastError) {
+        setLoading(false);
+        return;
+      }
+      if (response?.success) {
+        setState(prev => ({ ...prev, profileId }));
       }
       setLoading(false);
     });
@@ -141,18 +136,14 @@ function App() {
   const handleSaveCustomSettings = (settings: Partial<AccessibilityProfile>) => {
     setCustomSettings(settings);
     setLoading(true);
-    
     chrome.storage.sync.set({ customSettings: settings }, () => {
-      chrome.runtime.sendMessage({
-        action: 'setProfile',
-        profileId: 'custom',
-        customSettings: settings
-      }, (response) => {
-        if (response) {
-          setState(prev => ({
-            ...prev,
-            profileId: 'custom'
-          }));
+      chrome.runtime.sendMessage({ action: 'setProfile', profileId: 'custom', customSettings: settings }, (response: { success?: boolean }) => {
+        if (chrome.runtime.lastError) {
+          setLoading(false);
+          return;
+        }
+        if (response?.success) {
+          setState(prev => ({ ...prev, profileId: 'custom' }));
         }
         setLoading(false);
       });
@@ -167,21 +158,14 @@ function App() {
     });
   }, []);
 
-  const handleQuickSettingChange = useCallback((key: keyof QuickSettings, value: any) => {
+  const handleQuickSettingChange = useCallback((key: keyof QuickSettings, value: unknown) => {
     const newSettings = { ...quickSettings, [key]: value };
     setQuickSettings(newSettings);
     chrome.storage.sync.set({ quickSettings: newSettings }, () => {
       if (state.enabled) {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (tabs[0]?.id) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-              action: 'updateQuickSettings',
-              quickSettings: newSettings
-            }, () => {
-              if (chrome.runtime.lastError) {
-                console.error('[Popup] Error sending message:', chrome.runtime.lastError);
-              }
-            });
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'updateQuickSettings', quickSettings: newSettings }).catch(() => {});
           }
         });
       }

@@ -1,9 +1,9 @@
 // Chrome Extension API type declarations
 declare namespace chrome {
   namespace runtime {
-    function sendMessage(message: any, callback?: (response: any) => void): void;
+    function sendMessage<T = unknown>(message: unknown, callback?: (response: T) => void): void;
     const onMessage: {
-      addListener(callback: (message: any, sender: any, sendResponse: (response?: any) => void) => void | boolean): void;
+      addListener(callback: (message: unknown, sender: unknown, sendResponse: (response?: unknown) => void) => boolean | void): void;
     };
     const onInstalled: {
       addListener(callback: (details: { reason: string }) => void): void;

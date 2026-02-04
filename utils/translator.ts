@@ -1,5 +1,10 @@
-// Language translation utility using free Google Translate (no API key required)
-// Uses the same servers that translate.google.com uses
+// Language translation utility using Google Translate public endpoint (no API key).
+// Requests are proxied via the background script to avoid CORS.
+
+import { STORAGE_KEYS, isValidTargetLang } from '../types/messages';
+
+/** Max elements to translate per page (avoids rate limits and UI freeze) */
+export const MAX_TRANSLATE_ELEMENTS = 100;
 
 export interface Language {
   code: string;
@@ -41,9 +46,11 @@ export const SUPPORTED_LANGUAGES: Language[] = [
 let targetLanguage: string = 'en';
 
 export function setTargetLanguage(lang: string): void {
-  targetLanguage = lang;
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-    chrome.storage.sync.set({ targetLanguage: lang });
+  if (isValidTargetLang(lang)) {
+    targetLanguage = lang;
+    if (typeof chrome !== 'undefined' && chrome.storage?.sync) {
+      chrome.storage.sync.set({ [STORAGE_KEYS.TARGET_LANGUAGE]: lang });
+    }
   }
 }
 
@@ -57,153 +64,70 @@ export async function loadSettings(): Promise<void> {
   }
   
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['targetLanguage'], (result: { [key: string]: any }) => {
-      if (result.targetLanguage) {
-        targetLanguage = result.targetLanguage;
+    chrome.storage.sync.get([STORAGE_KEYS.TARGET_LANGUAGE], (result: { [key: string]: string }) => {
+      if (result[STORAGE_KEYS.TARGET_LANGUAGE] && isValidTargetLang(result[STORAGE_KEYS.TARGET_LANGUAGE])) {
+        targetLanguage = result[STORAGE_KEYS.TARGET_LANGUAGE];
       }
       resolve();
     });
   });
 }
 
-// Generate a token for Google Translate (simplified version)
-function generateToken(text: string): string {
-  // This is a simplified token generation
-  // In production, you might want to use a more sophisticated approach
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString();
-}
-
-// Translate single text using free Google Translate
 export async function translateText(text: string, targetLang: string = targetLanguage): Promise<string> {
-  if (!text || text.trim().length === 0) {
-    return text;
-  }
+  if (!text || text.trim().length === 0) return text;
+  if (targetLang === 'auto' || !targetLang || !isValidTargetLang(targetLang)) return text;
 
-  // Skip translation if target language is 'auto'
-  if (targetLang === 'auto' || !targetLang) {
-    return text;
-  }
-
-  console.log(`[Translate] Translating text (length: ${text.length}) to ${targetLang}`);
-  console.log(`[Translate] Text preview: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
-
-  // Use background script to proxy the request (avoids CORS issues)
   return new Promise((resolve) => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({
-        action: 'translate',
-        text: text,
-        targetLang: targetLang
-      }, (response: any) => {
-        if (chrome.runtime.lastError) {
-          console.error('[Translate] Runtime error:', chrome.runtime.lastError.message);
-          resolve(text);
-          return;
-        }
-        
-        if (response && response.translatedText) {
-          console.log(`[Translate] Successfully translated: "${text.substring(0, 50)}..." -> "${response.translatedText.substring(0, 50)}..."`);
-          resolve(response.translatedText);
-        } else if (response && response.error) {
-          console.error('[Translate] Translation error:', response.error);
-          resolve(text);
-        } else {
-          console.warn('[Translate] No translation in response:', response);
-          resolve(text);
-        }
-      });
-    } else {
-      console.warn('[Translate] Chrome runtime not available');
+    if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
       resolve(text);
+      return;
     }
+    chrome.runtime.sendMessage(
+      { action: 'translate', text, targetLang },
+      (response: { translatedText?: string; error?: string }) => {
+        if (chrome.runtime.lastError) {
+          resolve(text);
+          return;
+        }
+        if (response?.translatedText) resolve(response.translatedText);
+        else resolve(text);
+      }
+    );
   });
 }
 
-// Translate multiple text segments at once (more efficient)
 export async function translateTexts(texts: string[], targetLang: string = targetLanguage): Promise<string[]> {
-  if (!texts || texts.length === 0) {
-    return texts;
-  }
+  if (!texts?.length) return texts;
+  if (targetLang === 'auto' || !targetLang || !isValidTargetLang(targetLang)) return texts;
 
-  // Skip translation if target language is 'auto'
-  if (targetLang === 'auto' || !targetLang) {
-    return texts;
-  }
-
-  console.log(`[Translate] Translating ${texts.length} text segment(s) to ${targetLang}`);
-
-  // Use background script to proxy the request (avoids CORS issues)
   return new Promise((resolve) => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({
-        action: 'translate',
-        texts: texts,
-        targetLang: targetLang
-      }, (response: any) => {
+    if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+      resolve(texts);
+      return;
+    }
+    chrome.runtime.sendMessage(
+      { action: 'translate', texts, targetLang },
+      (response: { translatedTexts?: string[]; error?: string }) => {
         if (chrome.runtime.lastError) {
-          console.error('[Translate] Runtime error:', chrome.runtime.lastError.message);
           resolve(texts);
           return;
         }
-        
-        if (response && response.translatedTexts && Array.isArray(response.translatedTexts)) {
-          console.log(`[Translate] Successfully translated ${response.translatedTexts.length} segment(s)`);
-          console.log(`[Translate] Input texts (first 3):`, texts.slice(0, 3).map((t: string) => `"${t?.substring(0, 40)}..."`));
-          console.log(`[Translate] Results preview (first 3):`, response.translatedTexts.slice(0, 3).map((r: string) => `"${r?.substring(0, 40)}..."`));
-          
-          // Validate that we got valid translations
-          const validResults = response.translatedTexts.map((result: string, index: number) => {
-            const original = texts[index] || '';
-            
-            if (!result || result.trim() === '') {
-              console.warn(`[Translate] Result ${index} is empty, using original: "${original.substring(0, 30)}..."`);
-              return original;
-            }
-            
-            // Check if result is same as original (might be correct for proper nouns, etc.)
-            if (result === original) {
-              console.log(`[Translate] Result ${index} same as original (might be correct): "${original.substring(0, 30)}..."`);
-              // Still return it - it's a valid translation (just happens to be the same)
-              return result;
-            }
-            
-            return result;
-          });
-          
-          console.log(`[Translate] Valid results count: ${validResults.filter((r, i) => r && r !== texts[i]).length}/${validResults.length}`);
-          resolve(validResults);
-        } else if (response && response.error) {
-          console.error('[Translate] Translation error:', response.error);
-          resolve(texts);
+        if (response?.translatedTexts && Array.isArray(response.translatedTexts)) {
+          const valid = response.translatedTexts.map((r, i) =>
+            (r && r.trim() !== '') ? r : (texts[i] ?? '')
+          );
+          resolve(valid);
         } else {
-          console.warn('[Translate] No translation in response:', response);
-          console.warn('[Translate] Response keys:', response ? Object.keys(response) : 'null');
           resolve(texts);
         }
-      });
-    } else {
-      console.warn('[Translate] Chrome runtime not available');
-      resolve(texts);
-    }
+      }
+    );
   });
 }
 
-// Translate page content
 export async function translatePage(targetLang: string): Promise<void> {
-  if (targetLang === 'auto' || !targetLang) {
-    console.log('[Translate] Skipping translation - auto or no language selected');
-    return;
-  }
+  if (targetLang === 'auto' || !targetLang || !isValidTargetLang(targetLang)) return;
 
-  console.log(`[Translate] Starting page translation to ${targetLang}`);
-
-  // More comprehensive selectors to find text elements
   const allSelectors = [
     // Priority: main content areas
     'main p', 'main h1', 'main h2', 'main h3', 'main h4', 'main h5', 'main h6',
@@ -220,14 +144,10 @@ export async function translatePage(targetLang: string): Promise<void> {
     'div[class*="content"]', 'div[class*="text"]', 'div[class*="article"]',
   ];
 
-  // Try all selectors
   let textElements = document.querySelectorAll(allSelectors.join(', '));
-  
-  console.log(`[Translate] Found ${textElements.length} potential text elements with selectors`);
-
   const elementsToTranslate: Array<{ element: Element; originalText: string }> = [];
   let skippedCount = 0;
-  let skippedReasons: { [key: string]: number } = {};
+  const skippedReasons: { [key: string]: number } = {};
 
   // Collect elements with text
   textElements.forEach((element) => {
@@ -302,21 +222,9 @@ export async function translatePage(targetLang: string): Promise<void> {
     elementsToTranslate.push({ element, originalText: text });
   });
 
-  console.log(`[Translate] Found ${elementsToTranslate.length} elements to translate`);
-  console.log(`[Translate] Skipped ${skippedCount} elements. Reasons:`, skippedReasons);
+  const capped = elementsToTranslate.slice(0, MAX_TRANSLATE_ELEMENTS);
 
-  if (elementsToTranslate.length === 0) {
-    console.warn('[Translate] No elements found to translate');
-    console.warn('[Translate] Debug info:', {
-      totalElementsFound: textElements.length,
-      skippedCount: skippedCount,
-      skippedReasons: skippedReasons,
-      pageUrl: window.location.href,
-      pageTitle: document.title
-    });
-    
-    // Try a more aggressive approach: find any visible text nodes
-    console.log('[Translate] Trying fallback: searching for visible text nodes...');
+  if (capped.length === 0) {
     const fallbackElements: Array<{ element: Element; originalText: string }> = [];
     
     // Find all elements with text content, regardless of tag
@@ -350,12 +258,7 @@ export async function translatePage(targetLang: string): Promise<void> {
     });
 
     if (fallbackElements.length > 0) {
-      console.log(`[Translate] Fallback found ${fallbackElements.length} elements. Using fallback...`);
-      // Use fallback elements, but limit to first 50 to avoid performance issues
-      const limitedFallback = fallbackElements.slice(0, 50);
-      console.log(`[Translate] Using first ${limitedFallback.length} fallback elements`);
-      
-      // Continue with translation using fallback elements
+      const limitedFallback = fallbackElements.slice(0, Math.min(50, MAX_TRANSLATE_ELEMENTS));
       const batchSize = 10;
       let translatedCount = 0;
       let errorCount = 0;
@@ -378,87 +281,36 @@ export async function translatePage(targetLang: string): Promise<void> {
           if (i + batchSize < limitedFallback.length) {
             await new Promise(resolve => setTimeout(resolve, 300));
           }
-        } catch (error) {
-          console.error('[Translate] Error in fallback translation:', error);
+        } catch {
           errorCount += batch.length;
         }
       }
-      
-      console.log(`[Translate] Fallback translation complete. Translated ${translatedCount}/${limitedFallback.length} elements.`);
       return;
     }
-    
-    console.error('[Translate] No elements could be found for translation, even with fallback');
     return;
   }
 
-  // Translate in smaller batches - translate individually for better reliability
-  const batchSize = 5; // Smaller batches, each translated individually
+  const batchSize = 5;
   let translatedCount = 0;
-  let errorCount = 0;
-  
-  console.log(`[Translate] Starting translation of ${elementsToTranslate.length} elements in batches of ${batchSize}`);
-  
-  for (let i = 0; i < elementsToTranslate.length; i += batchSize) {
-    const batch = elementsToTranslate.slice(i, i + batchSize);
-    console.log(`[Translate] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(elementsToTranslate.length / batchSize)} (${batch.length} elements)`);
-    
+  for (let i = 0; i < capped.length; i += batchSize) {
+    const batch = capped.slice(i, i + batchSize);
     try {
-      // Extract texts from batch
       const textsToTranslate = batch.map(({ originalText }) => originalText);
-      
-      // Translate all texts in batch at once (multi-segment)
       const translatedTexts = await translateTexts(textsToTranslate, targetLang);
-      
-      // Apply translations to elements
-      let batchSuccessCount = 0;
       batch.forEach(({ element, originalText }, index) => {
         const translated = translatedTexts[index];
-        
-        if (!translated || translated.trim() === '') {
-          console.warn(`[Translate] Empty translation for element ${i + index + 1}: "${originalText.substring(0, 30)}..."`);
-          return;
-        }
-        
-        if (translated === originalText) {
-          console.warn(`[Translate] Translation same as original for element ${i + index + 1}: "${originalText.substring(0, 30)}..." -> "${translated.substring(0, 30)}..."`);
-          // Still apply it - might be correct (e.g., proper nouns, numbers)
+        if (translated?.trim()) {
           element.textContent = translated;
           element.setAttribute('data-a11y-translated', 'true');
           translatedCount++;
-          batchSuccessCount++;
-        } else if (translated.trim().length > 0) {
-          element.textContent = translated;
-          element.setAttribute('data-a11y-translated', 'true');
-          translatedCount++;
-          batchSuccessCount++;
-          console.log(`[Translate] ✓ Translated element ${i + index + 1}: "${originalText.substring(0, 30)}..." -> "${translated.substring(0, 30)}..."`);
         }
       });
-      
-      console.log(`[Translate] Batch complete: ${batchSuccessCount}/${batch.length} successful`);
-      
-      // Small delay between batches to respect rate limits
-      if (i + batchSize < elementsToTranslate.length) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+      if (i + batchSize < capped.length) {
+        await new Promise((r) => setTimeout(r, 300));
       }
-    } catch (error) {
-      console.error('[Translate] Error translating batch:', error);
-      errorCount += batch.length;
+    } catch {
+      // Continue with next batch
     }
-  }
-
-  console.log(`[Translate] Page translation complete. Translated ${translatedCount}/${elementsToTranslate.length} elements. Errors: ${errorCount}`);
-  
-  if (translatedCount === 0 && elementsToTranslate.length > 0) {
-    console.error('[Translate] WARNING: No elements were translated. Check console for errors.');
-    console.error('[Translate] This might indicate:');
-    console.error('[Translate] 1. translate-google-api package not installed (run: npm install translate-google-api)');
-    console.error('[Translate] 2. Background service worker not responding');
-    console.error('[Translate] 3. Translation API not accessible');
-    console.error('[Translate] Check background service worker console for details');
-  } else if (translatedCount > 0) {
-    console.log(`[Translate] ✓ Success! ${translatedCount} elements translated successfully`);
   }
 }
 
@@ -476,11 +328,6 @@ export function restoreOriginalText(): void {
   });
 }
 
-// Use browser's built-in translation as fallback
 export function useBrowserTranslation(targetLang: string): void {
-  // Add lang attribute to html element
   document.documentElement.lang = targetLang;
-  
-  // Trigger browser's built-in translation if available
-  console.log('[Translate] Browser translation enabled. Please use browser\'s translate feature.');
 }

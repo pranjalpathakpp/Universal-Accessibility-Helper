@@ -167,9 +167,6 @@ export function removeCognitiveReduction(): void {
     highlightSpans.forEach(span => span.remove());
   });
   
-  const videos = document.querySelectorAll<HTMLVideoElement>('video');
-  videos.forEach(video => {
-   
-  });
+  // Video autoplay was only removed, not stored; no restore needed
 }
 
