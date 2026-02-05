@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PROFILES, type ProfileId, type AccessibilityProfile } from './profiles';
 import {
   FiEye,
@@ -65,6 +65,15 @@ function App() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1.0);
   const [usageCount, setUsageCount] = useState(0);
+  type LastUsedPreset = {
+    profileId: ProfileId;
+    quickSettings: QuickSettings;
+    fontSizeMultiplier: number;
+  };
+  const [lastUsedPreset, setLastUsedPreset] = useState<LastUsedPreset | null>(null);
+  const [showLastUsedBanner, setShowLastUsedBanner] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ action: 'getState' }, (response: { enabled?: boolean; profileId?: ProfileId }) => {
@@ -104,12 +113,37 @@ function App() {
       setUsageCount(count);
     });
 
-    chrome.storage.local.get(['readLaterItems'], (result: { readLaterItems?: ReadLaterItem[] }) => {
+    chrome.storage.local.get(['readLaterItems', 'lastUsedPreset'], (result: { readLaterItems?: ReadLaterItem[]; lastUsedPreset?: LastUsedPreset }) => {
       if (Array.isArray(result.readLaterItems)) {
         setReadLaterItems(result.readLaterItems);
       }
+      if (result.lastUsedPreset) {
+        setLastUsedPreset(result.lastUsedPreset);
+        if (!state.enabled) {
+          setShowLastUsedBanner(true);
+        }
+      }
     });
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const showToast = (message: string) => {
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    setToast(message);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 2000);
+  };
 
   const handleToggle = useCallback(() => {
     setLoading(true);
@@ -124,12 +158,22 @@ function App() {
         return;
       }
       if (response) {
-        setState(prev => ({ ...prev, enabled: Boolean(response.enabled) }));
-        if (response.enabled) {
+        const enabled = Boolean(response.enabled);
+        setState(prev => ({ ...prev, enabled }));
+        if (enabled) {
           chrome.storage.local.get(['usageCount'], (result: { usageCount?: number }) => {
             const newCount = (typeof result.usageCount === 'number' ? result.usageCount : 0) + 1;
             chrome.storage.local.set({ usageCount: newCount }, () => setUsageCount(newCount));
           });
+          const preset: LastUsedPreset = {
+            profileId: state.profileId,
+            quickSettings,
+            fontSizeMultiplier
+          };
+          chrome.storage.local.set({ lastUsedPreset: preset });
+          setLastUsedPreset(preset);
+          setShowLastUsedBanner(false);
+          showToast('Accessibility mode is on for this page');
         }
       }
       setLoading(false);
@@ -213,7 +257,9 @@ function App() {
       setReadLaterItems(prev => {
         const existingWithoutUrl = prev.filter(x => x.url !== item.url);
         const updated = [item, ...existingWithoutUrl].slice(0, 50);
-        chrome.storage.local.set({ readLaterItems: updated });
+        chrome.storage.local.set({ readLaterItems: updated }, () => {
+          showToast('Page saved to Read Later');
+        });
         return updated;
       });
     });
@@ -387,6 +433,52 @@ function App() {
       )}
 
       <main className="main">
+        {!state.enabled && lastUsedPreset && showLastUsedBanner && (
+          <div className="last-used-banner">
+            <span className="last-used-text">Apply your last used accessibility settings?</span>
+            <div className="last-used-actions">
+              <button
+                type="button"
+                className="last-used-apply"
+                onClick={() => {
+                  if (!lastUsedPreset) return;
+                  setLoading(true);
+                  chrome.runtime.sendMessage({
+                    action: 'toggle',
+                    profileId: lastUsedPreset.profileId,
+                    quickSettings: lastUsedPreset.quickSettings,
+                    fontSizeMultiplier: lastUsedPreset.fontSizeMultiplier
+                  }, (response: { enabled?: boolean }) => {
+                    if (chrome.runtime.lastError) {
+                      setLoading(false);
+                      return;
+                    }
+                    if (response) {
+                      const enabled = Boolean(response.enabled);
+                      setState(prev => ({ ...prev, enabled, profileId: lastUsedPreset.profileId }));
+                      setQuickSettings(lastUsedPreset.quickSettings);
+                      setFontSizeMultiplier(lastUsedPreset.fontSizeMultiplier);
+                      if (enabled) {
+                        showToast('Accessibility mode is on for this page');
+                      }
+                    }
+                    setShowLastUsedBanner(false);
+                    setLoading(false);
+                  });
+                }}
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                className="last-used-dismiss"
+                onClick={() => setShowLastUsedBanner(false)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
         {usageCount >= 3 && (
           <ViralityPrompt 
             usageCount={usageCount} 
@@ -419,7 +511,98 @@ function App() {
           <>
             {/* Quick Actions */}
             <div className="quick-actions-section">
-              <h2>Quick Actions</h2>
+              <h2>
+                Quick Actions
+                <span
+                  className="help-hint"
+                  title="Fast controls for reading mode, ruler, dark mode, focus, themes, and translation."
+                >
+                  ?
+                </span>
+              </h2>
+              <div className="quick-presets-row">
+                <button
+                  type="button"
+                  className="quick-preset-btn"
+                  onClick={() => {
+                    const updated: QuickSettings = {
+                      ...quickSettings,
+                      readingMode: true,
+                      focusMode: true,
+                      readingRuler: true,
+                      theme: 'night'
+                    };
+                    setQuickSettings(updated);
+                    chrome.storage.sync.set({ quickSettings: updated }, () => {
+                      if (state.enabled) {
+                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                          if (tabs[0]?.id) {
+                            chrome.tabs.sendMessage(tabs[0].id, { action: 'updateQuickSettings', quickSettings: updated }).catch(() => {});
+                          }
+                        });
+                      }
+                    });
+                  }}
+                >
+                  Reading
+                </button>
+                <button
+                  type="button"
+                  className="quick-preset-btn"
+                  onClick={() => {
+                    const newProfileId: ProfileId = 'cognitive';
+                    const updated: QuickSettings = {
+                      ...quickSettings,
+                      readingMode: false,
+                      focusMode: false,
+                      readingRuler: false,
+                      theme: 'paper'
+                    };
+                    setQuickSettings(updated);
+                    chrome.storage.sync.set({ quickSettings: updated }, () => {
+                      if (state.enabled) {
+                        chrome.runtime.sendMessage({ action: 'setProfile', profileId: newProfileId }, () => {});
+                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                          if (tabs[0]?.id) {
+                            chrome.tabs.sendMessage(tabs[0].id, { action: 'updateQuickSettings', quickSettings: updated }).catch(() => {});
+                          }
+                        });
+                      }
+                    });
+                    setState(prev => ({ ...prev, profileId: newProfileId }));
+                  }}
+                >
+                  Calm
+                </button>
+                <button
+                  type="button"
+                  className="quick-preset-btn"
+                  onClick={() => {
+                    const newProfileId: ProfileId = 'lowVision';
+                    const updated: QuickSettings = {
+                      ...quickSettings,
+                      readingMode: false,
+                      focusMode: false,
+                      readingRuler: false,
+                      theme: 'highContrastBlue'
+                    };
+                    setQuickSettings(updated);
+                    chrome.storage.sync.set({ quickSettings: updated }, () => {
+                      if (state.enabled) {
+                        chrome.runtime.sendMessage({ action: 'setProfile', profileId: newProfileId }, () => {});
+                        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                          if (tabs[0]?.id) {
+                            chrome.tabs.sendMessage(tabs[0].id, { action: 'updateQuickSettings', quickSettings: updated }).catch(() => {});
+                          }
+                        });
+                      }
+                    });
+                    setState(prev => ({ ...prev, profileId: newProfileId }));
+                  }}
+                >
+                  High Contrast
+                </button>
+              </div>
               <div className="quick-actions-grid">
                 <button
                   className={`quick-action-btn ${quickSettings.readingMode ? 'active' : ''}`}
@@ -545,7 +728,15 @@ function App() {
                         }
                       }}
                     />
-                    <span>Translate Page</span>
+                    <span>
+                      Translate Page
+                      <span
+                        className="help-hint"
+                        title="Translate the page into another language. You can also translate only selected text."
+                      >
+                        ?
+                      </span>
+                    </span>
                   </label>
                 </div>
                 {quickSettings.translateEnabled && (
@@ -598,7 +789,15 @@ function App() {
             </div>
 
             <div className="profiles-section">
-              <h2>Accessibility Profile</h2>
+              <h2>
+                Accessibility Profile
+                <span
+                  className="help-hint"
+                  title="Choose a preset tuned for Low Vision, Dyslexia, Cognitive Load, or customize your own."
+                >
+                  ?
+                </span>
+              </h2>
               <div className="profiles-grid">
               {Object.values(PROFILES).map((profile) => {
                 const getProfileIcon = (id: ProfileId) => {
@@ -710,6 +909,12 @@ function App() {
       <footer className="footer">
         <p>Privacy-first • Built for accessibility • Works everywhere</p>
       </footer>
+
+      {toast && (
+        <div className="toast">
+          {toast}
+        </div>
+      )}
 
       <SettingsPanel
         isOpen={showSettings}
