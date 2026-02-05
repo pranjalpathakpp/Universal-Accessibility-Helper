@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PROFILES, type ProfileId, type AccessibilityProfile } from './profiles';
-import { 
-  FiEye, 
-  FiBookOpen, 
-  FiCpu, 
+import {
+  FiEye,
+  FiBookOpen,
+  FiCpu,
   FiSettings,
   FiCheck,
   FiZap,
@@ -28,8 +28,10 @@ interface QuickSettings {
   colorBlindMode: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
   readingRuler: boolean;
   darkMode: boolean;
+  focusMode: boolean;
   translateEnabled: boolean;
   targetLanguage: string;
+  theme: 'default' | 'paper' | 'night' | 'highContrastBlue';
 }
 
 function App() {
@@ -45,9 +47,21 @@ function App() {
     colorBlindMode: 'none',
     readingRuler: false,
     darkMode: false,
+    focusMode: false,
     translateEnabled: false,
-    targetLanguage: 'en'
+    targetLanguage: 'en',
+    theme: 'default'
   });
+  type ReadLaterItem = {
+    id: string;
+    url: string;
+    title: string;
+    createdAt: number;
+    profileId: ProfileId;
+    quickSettings: QuickSettings;
+    fontSizeMultiplier: number;
+  };
+  const [readLaterItems, setReadLaterItems] = useState<ReadLaterItem[]>([]);
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [fontSizeMultiplier, setFontSizeMultiplier] = useState(1.0);
   const [usageCount, setUsageCount] = useState(0);
@@ -67,13 +81,14 @@ function App() {
       setLoading(false);
     });
 
-    chrome.storage.sync.get(['quickSettings'], (result: { quickSettings?: QuickSettings }) => {
+    chrome.storage.sync.get(['quickSettings'], (result: { quickSettings?: Partial<QuickSettings> }) => {
       if (result.quickSettings) {
         setQuickSettings(prev => ({
           ...prev,
           ...result.quickSettings,
           translateEnabled: result.quickSettings?.translateEnabled ?? false,
-          targetLanguage: result.quickSettings?.targetLanguage || 'en'
+          targetLanguage: result.quickSettings?.targetLanguage || 'en',
+          theme: result.quickSettings?.theme || 'default'
         }));
       }
     });
@@ -87,6 +102,12 @@ function App() {
     chrome.storage.local.get(['usageCount'], (result: { usageCount?: number }) => {
       const count = typeof result.usageCount === 'number' ? result.usageCount : 0;
       setUsageCount(count);
+    });
+
+    chrome.storage.local.get(['readLaterItems'], (result: { readLaterItems?: ReadLaterItem[] }) => {
+      if (Array.isArray(result.readLaterItems)) {
+        setReadLaterItems(result.readLaterItems);
+      }
     });
   }, []);
 
@@ -159,7 +180,7 @@ function App() {
   }, []);
 
   const handleQuickSettingChange = useCallback((key: keyof QuickSettings, value: unknown) => {
-    const newSettings = { ...quickSettings, [key]: value };
+    const newSettings: QuickSettings = { ...quickSettings, [key]: value } as QuickSettings;
     setQuickSettings(newSettings);
     chrome.storage.sync.set({ quickSettings: newSettings }, () => {
       if (state.enabled) {
@@ -171,6 +192,51 @@ function App() {
       }
     });
   }, [quickSettings, state.enabled]);
+
+  const saveCurrentPageForLater = () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab?.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('chrome-extension://')) {
+        return;
+      }
+      const now = Date.now();
+      const id = `${now}-${Math.random().toString(36).slice(2, 8)}`;
+      const item: ReadLaterItem = {
+        id,
+        url: tab.url,
+        title: tab.title || 'Untitled page',
+        createdAt: now,
+        profileId: state.profileId,
+        quickSettings,
+        fontSizeMultiplier
+      };
+      setReadLaterItems(prev => {
+        const existingWithoutUrl = prev.filter(x => x.url !== item.url);
+        const updated = [item, ...existingWithoutUrl].slice(0, 50);
+        chrome.storage.local.set({ readLaterItems: updated });
+        return updated;
+      });
+    });
+  };
+
+  const openReadLaterItem = (item: ReadLaterItem) => {
+    chrome.storage.sync.set({
+      enabled: true,
+      profileId: item.profileId,
+      quickSettings: item.quickSettings,
+      fontSizeMultiplier: item.fontSizeMultiplier
+    }, () => {
+      chrome.tabs.create({ url: item.url });
+    });
+  };
+
+  const removeReadLaterItem = (id: string) => {
+    setReadLaterItems(prev => {
+      const updated = prev.filter(item => item.id !== id);
+      chrome.storage.local.set({ readLaterItems: updated });
+      return updated;
+    });
+  };
 
   const handleFontSizeAdjust = (delta: number) => {
     const newMultiplier = Math.max(0.5, Math.min(3.0, fontSizeMultiplier + delta));
@@ -204,13 +270,46 @@ function App() {
               handleQuickSettingChange('readingMode', !quickSettings.readingMode);
             }
             break;
+          case 'l':
+            if (state.enabled) {
+              e.preventDefault();
+              handleQuickSettingChange('readingRuler', !quickSettings.readingRuler);
+            }
+            break;
+          case 'm':
+            if (state.enabled) {
+              e.preventDefault();
+              handleQuickSettingChange('darkMode', !quickSettings.darkMode);
+            }
+            break;
+          case '.':
+            if (state.enabled) {
+              e.preventDefault();
+              handleFontSizeAdjust(0.1);
+            }
+            break;
+          case ',':
+            if (state.enabled) {
+              e.preventDefault();
+              handleFontSizeAdjust(-0.1);
+            }
+            break;
+          case 'p':
+            {
+              e.preventDefault();
+              const order: ProfileId[] = ['lowVision', 'dyslexia', 'cognitive', 'custom'];
+              const idx = order.indexOf(state.profileId);
+              const next = order[(idx + 1) % order.length];
+              handleProfileChange(next);
+            }
+            break;
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [handleToggle, state.enabled, quickSettings.readingMode, handleQuickSettingChange]);
+  }, [handleToggle, state.enabled, quickSettings.readingMode, quickSettings.readingRuler, quickSettings.darkMode, handleQuickSettingChange, fontSizeMultiplier, state.profileId]);
 
   if (loading && state.enabled === false) {
     return (
@@ -219,6 +318,15 @@ function App() {
       </div>
     );
   }
+
+  const getDomain = (url: string): string => {
+    try {
+      const u = new URL(url);
+      return u.hostname.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  };
 
   return (
     <div className="app">
@@ -253,6 +361,26 @@ function App() {
             <div className="shortcut-item">
               <kbd>Ctrl/Cmd + R</kbd>
               <span>Toggle reading mode</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + L</kbd>
+              <span>Toggle reading ruler</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + M</kbd>
+              <span>Toggle dark mode</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + ,</kbd>
+              <span>Decrease font size</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + .</kbd>
+              <span>Increase font size</span>
+            </div>
+            <div className="shortcut-item">
+              <kbd>Ctrl/Cmd + P</kbd>
+              <span>Cycle profiles</span>
             </div>
           </div>
         </div>
@@ -317,6 +445,14 @@ function App() {
                   {quickSettings.darkMode ? <FiSun size={18} /> : <FiMoon size={18} />}
                   <span>Dark Mode</span>
                 </button>
+                <button
+                  className={`quick-action-btn ${quickSettings.focusMode ? 'active' : ''}`}
+                  onClick={() => handleQuickSettingChange('focusMode', !quickSettings.focusMode)}
+                  title="Focus Mode - Dim non-content areas"
+                >
+                  <FiEye size={18} />
+                  <span>Focus Mode</span>
+                </button>
               </div>
 
               {/* Font Size Quick Adjust */}
@@ -356,6 +492,41 @@ function App() {
                   <option value="deuteranopia">Deuteranopia</option>
                   <option value="tritanopia">Tritanopia</option>
                 </select>
+              </div>
+
+              {/* Theme Presets */}
+              <div className="theme-control">
+                <label>Theme</label>
+                <div className="theme-pills">
+                  <button
+                    className={`theme-pill ${quickSettings.theme === 'default' ? 'active' : ''}`}
+                    onClick={() => handleQuickSettingChange('theme', 'default')}
+                    type="button"
+                  >
+                    Default
+                  </button>
+                  <button
+                    className={`theme-pill ${quickSettings.theme === 'paper' ? 'active' : ''}`}
+                    onClick={() => handleQuickSettingChange('theme', 'paper')}
+                    type="button"
+                  >
+                    Paper
+                  </button>
+                  <button
+                    className={`theme-pill ${quickSettings.theme === 'night' ? 'active' : ''}`}
+                    onClick={() => handleQuickSettingChange('theme', 'night')}
+                    type="button"
+                  >
+                    Night
+                  </button>
+                  <button
+                    className={`theme-pill ${quickSettings.theme === 'highContrastBlue' ? 'active' : ''}`}
+                    onClick={() => handleQuickSettingChange('theme', 'highContrastBlue')}
+                    type="button"
+                  >
+                    High Contrast
+                  </button>
+                </div>
               </div>
 
               {/* Language Translation */}
@@ -404,6 +575,25 @@ function App() {
                     <option value="tr">Turkish (Türkçe)</option>
                   </select>
                 )}
+                {quickSettings.translateEnabled && quickSettings.targetLanguage !== 'auto' && (
+                  <button
+                    className="quick-action-btn translate-selection-btn"
+                    onClick={() => {
+                      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                        if (tabs[0]?.id) {
+                          chrome.tabs.sendMessage(tabs[0].id, {
+                            action: 'translateSelection',
+                            targetLang: quickSettings.targetLanguage || 'en'
+                          }).catch(() => {});
+                        }
+                      });
+                    }}
+                    title="Translate selected text on the page"
+                  >
+                    <FiBookOpen size={16} />
+                    <span>Translate Selection</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -447,6 +637,54 @@ function App() {
           </div>
           </>
         )}
+
+        {/* Read Later */}
+        <div className="read-later-section">
+          <div className="read-later-header">
+            <h2>Read Later</h2>
+            <button
+              type="button"
+              className="read-later-save-btn"
+              onClick={saveCurrentPageForLater}
+            >
+              Save this page
+            </button>
+          </div>
+          {readLaterItems.length === 0 ? (
+            <p className="read-later-empty">No saved pages yet.</p>
+          ) : (
+            <div className="read-later-list">
+              {readLaterItems.map(item => (
+                <div key={item.id} className="read-later-item">
+                  <div className="read-later-main">
+                    <div className="read-later-title">{item.title}</div>
+                    <div className="read-later-meta">
+                      <span className="read-later-domain">
+                        {getDomain(item.url)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="read-later-actions">
+                    <button
+                      type="button"
+                      className="read-later-open"
+                      onClick={() => openReadLaterItem(item)}
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="read-later-remove"
+                      onClick={() => removeReadLaterItem(item.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {!state.enabled && (
           <div className="info-section">

@@ -31,8 +31,10 @@ export interface QuickSettings {
   colorBlindMode?: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
   readingRuler?: boolean;
   darkMode?: boolean;
+  focusMode?: boolean;
   translateEnabled?: boolean;
   targetLanguage?: string;
+  theme?: 'default' | 'paper' | 'night' | 'highContrastBlue';
 }
 
 /** Message: toggle accessibility */

@@ -30,6 +30,7 @@ declare namespace chrome {
     interface Tab {
       id?: number;
       url?: string;
+      title?: string;
       active?: boolean;
       currentWindow?: boolean;
     }

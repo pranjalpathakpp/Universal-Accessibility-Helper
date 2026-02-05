@@ -478,6 +478,167 @@ input:disabled + .slider:before {
   border-color: #667eea;
 }
 
+.translate-selection-btn {
+  margin-top: 10px;
+  width: 100%;
+  justify-content: center;
+}
+
+.theme-control {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.theme-control label {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.theme-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.theme-pill {
+  border-radius: 999px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  color: #555;
+  transition: all 0.15s ease;
+}
+
+.theme-pill.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.4);
+}
+
+.theme-pill:hover:not(.active) {
+  border-color: #c4c8ff;
+}
+
+.read-later-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.read-later-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.read-later-header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.read-later-save-btn {
+  border-radius: 999px;
+  border: none;
+  padding: 6px 12px;
+  font-size: 11px;
+  background: #667eea;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.35);
+  transition: all 0.15s ease;
+}
+
+.read-later-save-btn:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.read-later-empty {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.read-later-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.read-later-item {
+  background: white;
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.read-later-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.read-later-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #111827;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.read-later-meta {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.read-later-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.read-later-open,
+.read-later-remove {
+  border-radius: 999px;
+  border: none;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.read-later-open {
+  background: #22c55e;
+  color: white;
+}
+
+.read-later-remove {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.read-later-open:hover {
+  background: #16a34a;
+}
+
+.read-later-remove:hover {
+  background: #e5e7eb;
+}
+
 .translation-note {
   font-size: 11px;
   color: #666;

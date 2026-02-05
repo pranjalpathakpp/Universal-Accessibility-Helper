@@ -2,7 +2,7 @@ import { getProfile, applyProfile, type ProfileId, type AccessibilityProfile } f
 import { simplifyPageText } from '../utils/textSimplifier';
 import { enhancePageAria, removeAriaEnhancements } from '../utils/ariaEnhancer';
 import { applyCognitiveReduction, removeCognitiveReduction } from '../utils/cognitiveReducer';
-import { translatePage, restoreOriginalText, setTargetLanguage, loadSettings as loadTranslateSettings } from '../utils/translator';
+import { translatePage, translateText, restoreOriginalText, setTargetLanguage, loadSettings as loadTranslateSettings } from '../utils/translator';
 import { STORAGE_KEYS, isValidProfileId, isValidTargetLang } from '../types/messages';
 
 
@@ -254,6 +254,92 @@ function injectStyles(): void {
       outline-offset: 2px !important;
       border-radius: 4px !important;
     }
+
+    /* Focus Mode - dim non-main areas to emphasize content */
+    .a11y-focus-mode body > *:not(main):not(article):not([role="main"]):not([role="article"]):not(#a11y-reading-ruler):not(#a11y-translation-bubble) {
+      opacity: 0.25 !important;
+      transition: opacity 0.2s ease;
+    }
+
+    .a11y-focus-mode main,
+    .a11y-focus-mode article,
+    .a11y-focus-mode [role="main"],
+    .a11y-focus-mode [role="article"] {
+      opacity: 1 !important;
+      background-color: #ffffff !important;
+    }
+
+    /* Selection translation bubble */
+    #a11y-translation-bubble {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      max-width: 360px;
+      z-index: 999999;
+      background: #1e293b;
+      color: #f9fafb;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.45);
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.4;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    #a11y-translation-bubble h4 {
+      margin: 0 0 6px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+
+    #a11y-translation-bubble .a11y-translation-original {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    #a11y-translation-bubble button {
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0;
+      margin-top: 4px;
+      text-decoration: underline;
+    }
+
+    /* Theme: Paper (warm, low-glare) */
+    .a11y-theme-paper body {
+      background: #fdf6e3 !important;
+      color: #111827 !important;
+    }
+
+    .a11y-theme-paper a {
+      color: #2563eb !important;
+    }
+
+    /* Theme: Night */
+    .a11y-theme-night body {
+      background: #020617 !important;
+      color: #e5e7eb !important;
+    }
+
+    .a11y-theme-night a {
+      color: #38bdf8 !important;
+    }
+
+    /* Theme: High Contrast Blue */
+    .a11y-theme-high-contrast-blue body {
+      background: #0f172a !important;
+      color: #e5e7eb !important;
+    }
+
+    .a11y-theme-high-contrast-blue a {
+      color: #60a5fa !important;
+      text-decoration: underline !important;
+    }
   `;
   
   document.head.appendChild(style);
@@ -338,7 +424,11 @@ function removeEnhancements(): void {
     'a11y-dark-mode',
     'a11y-color-blind-protanopia',
     'a11y-color-blind-deuteranopia',
-    'a11y-color-blind-tritanopia'
+    'a11y-color-blind-tritanopia',
+    'a11y-focus-mode',
+    'a11y-theme-paper',
+    'a11y-theme-night',
+    'a11y-theme-high-contrast-blue'
   );
   
   document.documentElement.removeAttribute('data-a11y-profile');
@@ -404,8 +494,10 @@ interface QuickSettings {
   colorBlindMode?: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
   readingRuler?: boolean;
   darkMode?: boolean;
+   focusMode?: boolean;
   translateEnabled?: boolean;
   targetLanguage?: string;
+  theme?: 'default' | 'paper' | 'night' | 'highContrastBlue';
 }
 
 let currentQuickSettings: QuickSettings = {};
@@ -419,6 +511,18 @@ let pendingProfileSwitch: { profileId: ProfileId; customSettings?: Partial<Acces
 let rulerMouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 let rulerScrollHandler: (() => void) | null = null;
 let lastMouseY = 0;
+
+function applyTheme(theme?: 'default' | 'paper' | 'night' | 'highContrastBlue'): void {
+  const root = document.documentElement;
+  root.classList.remove('a11y-theme-paper', 'a11y-theme-night', 'a11y-theme-high-contrast-blue');
+  if (theme === 'paper') {
+    root.classList.add('a11y-theme-paper');
+  } else if (theme === 'night') {
+    root.classList.add('a11y-theme-night');
+  } else if (theme === 'highContrastBlue') {
+    root.classList.add('a11y-theme-high-contrast-blue');
+  }
+}
 
 function applyAccessibility(profileId: ProfileId, customSettings?: Partial<AccessibilityProfile>, quickSettings?: QuickSettings, fontSizeMultiplier?: number): void {
   // Store the latest request
@@ -570,6 +674,9 @@ function applyProfileWithSettings(profile: AccessibilityProfile, profileId: Prof
       });
     }
 
+    // Apply theme
+    applyTheme(currentQuickSettings.theme);
+
     const applyNonCriticalFeatures = () => {
       try {
         if (profile.simplifyText) simplifyPageText();
@@ -666,6 +773,15 @@ function updateQuickSettings(quickSettings: QuickSettings): void {
       document.documentElement.classList.remove('a11y-dark-mode');
     }
   }
+
+  // Focus mode
+  if (quickSettings.focusMode !== undefined) {
+    if (quickSettings.focusMode) {
+      document.documentElement.classList.add('a11y-focus-mode');
+    } else {
+      document.documentElement.classList.remove('a11y-focus-mode');
+    }
+  }
   
   // Update color blind mode
   document.documentElement.classList.remove(
@@ -721,6 +837,11 @@ function updateQuickSettings(quickSettings: QuickSettings): void {
         }, 300);
       });
     }
+  }
+
+  // Update theme
+  if (quickSettings.theme !== undefined) {
+    applyTheme(quickSettings.theme as 'default' | 'paper' | 'night' | 'highContrastBlue');
   }
 }
 
@@ -801,6 +922,72 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
         else safeSend({ translatedText: response?.translatedText ?? text });
       }
     );
+    return true;
+  }
+
+  if (msg.action === 'translateSelection') {
+    const targetLang = typeof msg.targetLang === 'string' ? msg.targetLang : '';
+    const safeSendSelection = (payload: unknown) => {
+      try {
+        sendResponse(payload);
+      } catch {
+        // ignore
+      }
+    };
+
+    if (!targetLang || targetLang === 'auto' || !isValidTargetLang(targetLang)) {
+      safeSendSelection({ success: false, error: 'Invalid target language' });
+      return true;
+    }
+
+    try {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim() || '';
+      if (!text) {
+        safeSendSelection({ success: false, error: 'No text selected' });
+        return true;
+      }
+
+      translateText(text, targetLang).then((translated) => {
+        try {
+          const existing = document.getElementById('a11y-translation-bubble');
+          if (existing) existing.remove();
+
+          const bubble = document.createElement('div');
+          bubble.id = 'a11y-translation-bubble';
+
+          const title = document.createElement('h4');
+          title.textContent = `Translated to ${targetLang}`;
+          bubble.appendChild(title);
+
+          const originalEl = document.createElement('div');
+          originalEl.className = 'a11y-translation-original';
+          originalEl.textContent = text.slice(0, 160) + (text.length > 160 ? '…' : '');
+          bubble.appendChild(originalEl);
+
+          const translatedEl = document.createElement('div');
+          translatedEl.textContent = translated;
+          bubble.appendChild(translatedEl);
+
+          const closeBtn = document.createElement('button');
+          closeBtn.type = 'button';
+          closeBtn.textContent = 'Close';
+          closeBtn.addEventListener('click', () => {
+            bubble.remove();
+          });
+          bubble.appendChild(closeBtn);
+
+          document.body.appendChild(bubble);
+          safeSendSelection({ success: true });
+        } catch {
+          safeSendSelection({ success: false, error: 'Could not show translation' });
+        }
+      }).catch(() => {
+        safeSendSelection({ success: false, error: 'Translation failed' });
+      });
+    } catch {
+      safeSendSelection({ success: false, error: 'Could not read selection' });
+    }
     return true;
   }
 
