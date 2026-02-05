@@ -57,16 +57,21 @@ This extension puts control in **your hands**: you choose how content is present
 | **ARIA & cognitive** | Better screen-reader hints, less clutter, key content highlighted |
 | **Privacy-first** | Processing is local; no data sent to servers except for translation |
 
-### Quick Actions (v0.2.0)
+### Quick Actions & comfort features (v0.2.x–v0.3)
 
 | Feature | Description |
 |--------|-------------|
 | **Reading Mode** | Hide nav and sidebars; focus on main content with optimal width |
 | **Reading Ruler** | Purple line that follows the cursor to track reading position |
 | **Dark Mode** | Inverted colors for low-light viewing |
+| **Focus Mode** | Dim non-main areas to visually isolate the main content |
 | **Color blind filters** | Protanopia, Deuteranopia, Tritanopia |
-| **Font size** | Real-time 0.5×–3× with +/- controls |
+| **Font size** | Real-time 0.5×–3× with +/- controls (0.5×–3×) |
+| **Themes** | Default, Paper, Night, High-contrast Blue page themes |
 | **Translation** | Translate the whole page to 30+ languages (no API key, no refresh) |
+| **Selection translation** | Translate only the selected text with a floating bubble |
+| **Quick presets** | One-click “Reading”, “Calm”, and “High Contrast” presets |
+| **Read Later** | Save pages with their accessibility settings and reopen with the same experience |
 
 ### Technical
 
@@ -108,6 +113,11 @@ Translate any page to **30+ languages** using Google Translate’s public API. N
 |----------|--------|
 | `Ctrl` / `Cmd` + `K` | Toggle accessibility on/off |
 | `Ctrl` / `Cmd` + `R` | Toggle Reading Mode |
+| `Ctrl` / `Cmd` + `L` | Toggle Reading Ruler |
+| `Ctrl` / `Cmd` + `M` | Toggle Dark Mode |
+| `Ctrl` / `Cmd` + `,` | Decrease font size |
+| `Ctrl` / `Cmd` + `.` | Increase font size |
+| `Ctrl` / `Cmd` + `P` | Cycle profiles (Low Vision → Dyslexia → Cognitive → Custom) |
 
 ---
 
@@ -157,7 +167,7 @@ universal-accessibility-helper/
 ├── manifest.json           # Extension manifest (v3)
 ├── popup/                  # React popup UI
 │   ├── src/
-│   │   ├── App.tsx
+│   │   ├── App.tsx           # Popup shell, Quick Actions, presets, Read Later, tooltips
 │   │   ├── SettingsPanel.tsx
 │   │   ├── ViralityPrompt.tsx
 │   │   └── profiles.ts
@@ -252,23 +262,26 @@ The extension is built to handle incomplete data, invalid input, and messaging e
 
 ## Changelog
 
-### 0.2.0
+### 0.3.0 (current)
 
-- Reading Mode, Reading Ruler, Dark Mode, Color blind filters
-- Keyboard shortcuts (Ctrl/Cmd + K, Ctrl/Cmd + R)
-- Font size quick adjust (0.5×–3×)
-- **Page translation** — 30+ languages, no API key, no refresh
-- Improved UI/UX, performance, and state persistence
-- In-extension rating/share prompt after a few uses
+- Focus Mode (dim non-main areas while keeping content sharp)
+- Themes: Default, Paper, Night, High-contrast Blue
+- Selection translation bubble for highlighted text
+- Read Later list (saves URL + profile + quick settings + font size; reopens with the same experience)
+- Quick Presets row: **Reading**, **Calm**, **High Contrast**
+- Extra keyboard shortcuts (L, M, comma, dot, P)
+- Micro-help hints (`?` badges) for Quick Actions, Profiles, and Translation
+- Last-used preset banner (“Apply your last used settings?”)
+- Gentle toasts for enable + Read Later actions
 
-#### Robustness & production hardening (post-0.2.0)
+#### Robustness & production hardening
 
 - **Shared types** (`types/messages.ts`): Message and storage types; `VALID_PROFILE_IDS` and `VALID_TARGET_LANGS`; `isValidProfileId` / `isValidTargetLang`; `STORAGE_KEYS`.
-- **Background:** Toggle uses storage fallbacks so profile/quick settings/font size are never wiped by incomplete messages. All handlers validate input and use `safeSend`. Translation only accepts allowlisted language codes.
-- **Content script:** Validates `profileId` and `fontSizeMultiplier` on enable; uses `STORAGE_KEYS` for storage and mutation observer; message listener accepts `unknown` and casts safely; all handlers wrapped in try/catch with safe response.
-- **Translator:** Translation capped at 100 elements per page; language validation at API boundary; `setTargetLanguage` / `loadSettings` accept and persist any non-empty string; no verbose console logs.
-- **Popup:** Checks `chrome.runtime.lastError` on every `sendMessage` callback; typed responses; Cognitive profile aligned with `utils/profiles.ts`.
-- **Manifest:** `minimum_chrome_version: "88"` for MV3. Build strips all `console.*` in content and background.
+- **Background:** Toggle uses storage fallbacks so profile/quick settings/font size are never wiped by incomplete messages. All handlers validate input and use `safeSend`. Translation only accepts allowlisted language codes, with batched, rate-limited calls.
+- **Content script:** Validates `profileId` and `fontSizeMultiplier` on enable; uses `STORAGE_KEYS` for storage and mutation observer; message listener accepts `unknown` and casts safely; all handlers wrapped in try/catch with safe response; translation capped at 100 elements per page.
+- **Translator:** Language validation at API boundary; batched requests with delays; safe fallbacks when API fails; selection translation reuses the same pipeline.
+- **Popup:** Checks `chrome.runtime.lastError` on every `sendMessage` callback; typed responses; Cognitive profile aligned with `utils/profiles.ts`; Read Later and Last Used powered by local storage.
+- **Manifest/build:** `minimum_chrome_version: "88"` for MV3; esbuild drops all `console.*` in content and background; popup is bundled + minified.
 
 ### 0.1.0
 
